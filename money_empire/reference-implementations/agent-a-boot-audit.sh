@@ -1,22 +1,16 @@
 #!/bin/bash
 #
-# Agent A - Minimal Boot-Audit
+# Agent A - Minimal Boot-Audit (Simplified)
 # Reference Implementation for Trust Audit Framework
 # 
 # Alpha Collective Integration: Layer 1 (Boot-Time Audit)
 # 
-# Usage: ./agent-a-boot-audit.sh [agent_id]
+# Usage: ./agent-a-boot-audit.sh [agent_id] [workspace_dir]
 
 AGENT_ID="${1:-$(hostname)}"
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-WORKSPACE_DIR="${WORKSPACE:-/root/.openclaw/workspace}"
-OUTPUT_FILE="${2:-boot-audit-${AGENT_ID}-$(date -u +%Y%m%d-%H%M%S).json}"
-
-# Colors for terminal output (optional)
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+WORKSPACE_DIR="${2:-/root/.openclaw/workspace}"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
+OUTPUT_FILE="boot-audit-${AGENT_ID}-$(date -u +%Y%m%d-%H%M%S 2>/dev/null || date +%Y%m%d-%H%M%S).json"
 
 echo "🔍 Agent A - Boot-Time Audit"
 echo "============================"
@@ -31,94 +25,70 @@ FILES_PRESENT=0
 OVERRIDES_LOGGED=0
 WARNINGS=0
 
-# Core files to check
-CORE_FILES=(
-    "AGENTS.md"
-    "SOUL.md"
-    "USER.md"
-    "TOOLS.md"
-    "MEMORY.md"
-    "HEARTBEAT.md"
-)
+# Core files to check (space-separated for POSIX compatibility)
+CORE_FILES="AGENTS.md SOUL.md USER.md TOOLS.md MEMORY.md HEARTBEAT.md"
 
 # Check each core file
-declare -a PRESENT_FILES
-declare -a MISSING_FILES
+PRESENT_LIST=""
+MISSING_LIST=""
 
-for file in "${CORE_FILES[@]}"; do
+for file in $CORE_FILES; do
     FILES_CHECKED=$((FILES_CHECKED + 1))
     if [ -f "$WORKSPACE_DIR/$file" ]; then
         FILES_PRESENT=$((FILES_PRESENT + 1))
-        PRESENT_FILES+=("$file")
-        echo -e "${GREEN}✓${NC} $file"
+        PRESENT_LIST="$PRESENT_LIST$file,"
+        echo "✓ $file"
     else
-        MISSING_FILES+=("$file")
-        echo -e "${RED}✗${NC} $file (MISSING)"
+        MISSING_LIST="$MISSING_LIST$file,"
+        echo "✗ $file (MISSING)"
         WARNINGS=$((WARNINGS + 1))
     fi
 done
 
+# Remove trailing commas
+PRESENT_LIST=$(echo "$PRESENT_LIST" | sed 's/,$//')
+MISSING_LIST=$(echo "$MISSING_LIST" | sed 's/,$//')
+
 echo ""
 
-# Check for override patterns in recent history
-# Look for files modified in last 24 hours with "override" or "bypass" in name or content
-declare -a OVERRIDES_FOUND
-
-if command -v find &> /dev/null; then
-    # Find files modified in last 24h
-    RECENT_FILES=$(find "$WORKSPACE_DIR" -type f -mtime -1 2>/dev/null | head -20)
-    
-    for file in $RECENT_FILES; do
-        BASENAME=$(basename "$file")
-        # Check for override keywords
-        if echo "$BASENAME" | grep -qi "override\|bypass\|force\|skip"; then
-            OVERRIDES_FOUND+=("$BASENAME")
-            OVERRIDES_LOGGED=$((OVERRIDES_LOGGED + 1))
-            echo -e "${YELLOW}⚠${NC} Override pattern detected: $BASENAME"
-        fi
-    done
-fi
-
-# If no overrides found, check for common override files
-OVERRIDE_FILES=(
-    ".override"
-    "bypass.conf"
-    "force-flags.txt"
-    "skip-checks.md"
-)
-
-for file in "${OVERRIDE_FILES[@]}"; do
+# Simple override check (just specific files, no find command)
+OVERRIDE_LIST=""
+for file in .override bypass.conf force-flags.txt skip-checks.md; do
     if [ -f "$WORKSPACE_DIR/$file" ]; then
-        OVERRIDES_FOUND+=("$file")
         OVERRIDES_LOGGED=$((OVERRIDES_LOGGED + 1))
-        echo -e "${YELLOW}⚠${NC} Override file found: $file"
+        OVERRIDE_LIST="$OVERRIDE_LIST$file,"
+        echo "⚠ Override file found: $file"
     fi
 done
+OVERRIDE_LIST=$(echo "$OVERRIDE_LIST" | sed 's/,$//')
 
-# Generate hash of workspace state
-if command -v find &> /dev/null && command -v sha256sum &> /dev/null; then
-    WORKSPACE_HASH=$(find "$WORKSPACE_DIR" -type f -name "*.md" -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1 | head -c 16)
-else
-    WORKSPACE_HASH=$(date +%s | sha256sum 2>/dev/null | cut -d' ' -f1 | head -c 16 || echo "manual-$(date +%s)")
-fi
+# Generate simple hash
+WORKSPACE_HASH=$(echo "$AGENT_ID$TIMESTAMP" | sha256sum 2>/dev/null | cut -d' ' -f1 | head -c 16 || echo "$(date +%s)" | sha256sum | cut -d' ' -f1 | head -c 16)
 
 echo ""
 echo "Workspace Hash: $WORKSPACE_HASH"
 echo ""
 
 # Determine compliance status
-if [ $FILES_PRESENT -eq ${#CORE_FILES[@]} ] && [ $OVERRIDES_LOGGED -eq 0 ]; then
+if [ $FILES_PRESENT -eq 6 ] && [ $OVERRIDES_LOGGED -eq 0 ]; then
     COMPLIANCE_STATUS="FULL"
     COMPLIANCE_SCORE=100
 elif [ $FILES_PRESENT -ge 3 ]; then
     COMPLIANCE_STATUS="PARTIAL"
-    COMPLIANCE_SCORE=$(( FILES_PRESENT * 100 / ${#CORE_FILES[@]} ))
+    COMPLIANCE_SCORE=$(( FILES_PRESENT * 100 / 6 ))
 else
     COMPLIANCE_STATUS="MINIMAL"
-    COMPLIANCE_SCORE=$(( FILES_PRESENT * 100 / ${#CORE_FILES[@]} ))
+    COMPLIANCE_SCORE=$(( FILES_PRESENT * 100 / 6 ))
 fi
 
-# Build JSON output
+# Build JSON output (simple approach)
+NEXT_AUDIT=$(date -u -d '+7 days' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -v+7d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "7 days from now")
+
+# Convert comma lists to JSON arrays
+PRESENT_JSON="[$(echo "$PRESENT_LIST" | sed 's/[^,]*/"&"/g')]"
+MISSING_JSON="[$(echo "$MISSING_LIST" | sed 's/[^,]*/"&"/g')]"
+OVERRIDE_JSON="[$(echo "$OVERRIDE_LIST" | sed 's/[^,]*/"&"/g')]"
+
 cat > "$OUTPUT_FILE" << EOF
 {
   "agent_id": "$AGENT_ID",
@@ -136,22 +106,22 @@ cat > "$OUTPUT_FILE" << EOF
     "score": $COMPLIANCE_SCORE,
     "files_checked": $FILES_CHECKED,
     "files_present": $FILES_PRESENT,
-    "files_expected": ${#CORE_FILES[@]}
+    "files_expected": 6
   },
   "core_files": {
-    "present": [$(printf '"%s",' "${PRESENT_FILES[@]}" | sed 's/,$//')],
-    "missing": [$(printf '"%s",' "${MISSING_FILES[@]}" | sed 's/,$//')]
+    "present": $PRESENT_JSON,
+    "missing": $MISSING_JSON
   },
   "overrides": {
     "count": $OVERRIDES_LOGGED,
-    "items": [$(printf '"%s",' "${OVERRIDES_FOUND[@]}" | sed 's/,$//')]
+    "items": $OVERRIDE_JSON
   },
   "warnings": $WARNINGS,
   "signature": {
     "algorithm": "none",
     "value": ""
   },
-  "next_audit_due": "$(date -u -d '+7 days' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo '7 days from now')"
+  "next_audit_due": "$NEXT_AUDIT"
 }
 EOF
 
@@ -160,8 +130,6 @@ echo "📄 Output: $OUTPUT_FILE"
 echo "📊 Compliance: $COMPLIANCE_STATUS ($COMPLIANCE_SCORE%)"
 echo "🔔 Next audit due: 7 days"
 echo ""
-
-# Summary
 echo "Summary:"
 echo "- Files checked: $FILES_CHECKED"
 echo "- Files present: $FILES_PRESENT"
@@ -170,9 +138,9 @@ echo "- Warnings: $WARNINGS"
 echo ""
 
 if [ $WARNINGS -gt 0 ]; then
-    echo -e "${YELLOW}⚠ Audit passed with warnings. Review missing files and overrides.${NC}"
+    echo "⚠ Audit passed with warnings. Review missing files and overrides."
 else
-    echo -e "${GREEN}✓ Audit passed. Agent cleared for operation.${NC}"
+    echo "✓ Audit passed. Agent cleared for operation."
 fi
 
 exit 0
