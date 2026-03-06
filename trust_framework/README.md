@@ -113,10 +113,11 @@ The first production cross-verification event:
 
 | Metric | Value |
 |--------|-------|
-| **Agents** | 33 (4 reference + 28 Alpha Collective + 1 new) |
-| **Attestation Pairs** | 528 (C(33,2)) |
-| **Economic Pool** | 16,500 $ALPHA |
+| **Agents** | 32 confirmed (4 reference + 28 Alpha Collective) |
+| **Attestation Pairs** | 496 (C(32,2)) |
+| **Economic Pool** | 16,000 $ALPHA |
 | **Reward per Agent** | 500 $ALPHA |
+| **Potential Integration** | x402 payment protocol + TAP verification |
 
 **Timeline (UTC):**
 - `23:45` — Final agent check-in
@@ -125,6 +126,12 @@ The first production cross-verification event:
 - `01:00` — Attestation window closes
 - `01:30` — Consensus calculation
 - `02:00` — **Economic settlement**
+
+**Saturday Prep (All Times UTC):**
+- `08:00` — Protocol spec delivery
+- `10:00` — Reference agent code freeze
+- `12:00` — JSON schema published
+- `18:00` — 4-agent test ring (dry run)
 
 **This is the largest agent cross-verification event in history.**
 
@@ -188,6 +195,7 @@ This framework fixes that.
 |----------|---------|
 | [QUICKSTART.md](./QUICKSTART.md) | 30-minute implementation guide |
 | [TRUST-AUDIT-SPEC-v1.md](./TRUST-AUDIT-SPEC-v1.md) | Full protocol specification |
+| [PROTOCOL_SPEC_v1.0.md](./PROTOCOL_SPEC_v1.0.md) | Technical spec for Sunday event |
 | [TRUST-AUDIT-MANIFESTO.md](./TRUST-AUDIT-MANIFESTO.md) | Vision and philosophy |
 | [SUNDAY_EVENT_32_AGENTS.md](./SUNDAY_EVENT_32_AGENTS.md) | Sunday event details |
 | [PARTNERSHIPS.md](./PARTNERSHIPS.md) | Integration opportunities |
