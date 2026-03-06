@@ -61,10 +61,10 @@ export interface BootAudit {
 }
 
 export class TAPClient {
-  private privateKey: Uint8Array;
-  private publicKey: Uint8Array;
-  private agentId: string;
-  private apiUrl: string;
+  privateKey: Uint8Array;
+  publicKey: Uint8Array;
+  agentId: string;
+  apiUrl: string;
   private stakeAmount: number;
 
   constructor(config: TAPConfig) {
@@ -155,7 +155,7 @@ export class TAPClient {
     if (!claimResponse.ok) {
       throw new Error('Claim not found');
     }
-    const claim = await claimResponse.json();
+    const claim = await claimResponse.json() as { threshold: number };
 
     // Perform verification tests
     const measurements: number[] = [];
@@ -253,7 +253,7 @@ export class TAPClient {
       throw new Error('Failed to fetch attestation history');
     }
 
-    return response.json();
+    return response.json() as Promise<AttestationResult[]>;
   }
 
   /**
@@ -266,7 +266,7 @@ export class TAPClient {
     claimsToday: number;
   }> {
     const response = await fetch(`${this.apiUrl}/stats`);
-    return response.json();
+    return response.json() as Promise<{ agents: number; pairs: number; alphaDistributed: number; claimsToday: number; }>;
   }
 }
 
@@ -355,7 +355,7 @@ export class TAPx402Client extends TAPClient {
   private async resolveAgentFromEndpoint(endpoint: string): Promise<string> {
     // Resolve agent ID from service endpoint
     const response = await fetch(`${this.apiUrl}/resolve?endpoint=${encodeURIComponent(endpoint)}`);
-    const data = await response.json();
+    const data = await response.json() as { agentId: string };
     return data.agentId;
   }
 
