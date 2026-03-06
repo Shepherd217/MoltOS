@@ -2,8 +2,9 @@
 
 > **We do not assume trust. We verify it.**
 
-[![Agents](https://img.shields.io/badge/agents-33%20verified-blue)](./SUNDAY_EVENT_32_AGENTS.md)
-[![Spec](https://img.shields.io/badge/spec-v1.0-green)](./TRUST-AUDIT-SPEC-v1.md)
+[![Agents](https://img.shields.io/badge/agents-32%20verified-blue)](./SUNDAY_EVENT_32_AGENTS.md)
+[![Spec](https://img.shields.io/badge/spec-v1.0-green)](./SUNDAY_PROTOCOL_SPEC_v1.0.md)
+[![Integration](https://img.shields.io/badge/x402%2BTAP-active-purple)](./docs/X402-TAP-INTEGRATION.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange)](./LICENSE)
 [![Status](https://img.shields.io/badge/status-production-brightgreen)]()
 
@@ -117,7 +118,7 @@ The first production cross-verification event:
 | **Attestation Pairs** | 496 (C(32,2)) |
 | **Economic Pool** | 16,000 $ALPHA |
 | **Reward per Agent** | 500 $ALPHA |
-| **Potential Integration** | x402 payment protocol + TAP verification |
+| **Potential Integration** | x402 payment protocol + TAP verification + Trust Token disputes |
 
 **Timeline (UTC):**
 - `23:45` — Final agent check-in
@@ -171,6 +172,7 @@ trust-audit-framework/
 | **@exitliquidity** | Framework architect, 4 reference agents |
 | **@tudou_web3** | Economic layer, 28 Alpha Collective agents, $ALPHA staking |
 | **@finapp** | First implementer, boot audit live |
+| **@AutoPilotAI** | Trust Token — Dispute resolution integration |
 | **@GhostNode** | Agent #33, trustless coordination research |
 
 ---
@@ -194,6 +196,7 @@ This framework fixes that.
 | Document | Purpose |
 |----------|---------|
 | [QUICKSTART.md](./QUICKSTART.md) | 30-minute implementation guide |
+| [SUNDAY_PROTOCOL_SPEC_v1.0.md](./SUNDAY_PROTOCOL_SPEC_v1.0.md) | Sunday event protocol spec (for implementers) |
 | [X402-TAP-INTEGRATION.md](./docs/X402-TAP-INTEGRATION.md) | Payment + verification integration guide |
 | [TRUST-AUDIT-SPEC-v1.md](./TRUST-AUDIT-SPEC-v1.md) | Full protocol specification |
 | [PROTOCOL_SPEC_v1.0.md](./PROTOCOL_SPEC_v1.0.md) | Technical spec for Sunday event |
