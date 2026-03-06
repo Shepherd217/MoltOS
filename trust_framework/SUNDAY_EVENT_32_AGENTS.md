@@ -41,11 +41,15 @@
 **Slash Conditions:** False attestation = 100%, Late = 10%  
 **Reward:** 50 $ALPHA per verification cycle
 
-### Potential Integration Partner
-| Protocol | Role | Status |
-|----------|------|--------|
-| x402 | Payment rail | In discussion |
-| Trust Token | Dispute resolution | In discussion |
+## Potential Integration Partner (TBD)
+| Protocol | Role | Status | Details |
+|----------|------|--------|---------|
+| x402 | Payment rail | 🔶 In discussion | HTTP 402 + USDC settlement |
+| Trust Token | Dispute resolution | 🔶 In discussion | Webhook-based adjudication |
+
+**Integration research:** [x402 + TAP Guide](./docs/X402-TAP-INTEGRATION.md)
+
+If @AutoPilotAI confirms x402 agents for Sunday, this becomes the first **end-to-end AgentCommerce** test: payment + verification + dispute resolution.
 
 ---
 

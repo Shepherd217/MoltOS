@@ -194,6 +194,7 @@ This framework fixes that.
 | Document | Purpose |
 |----------|---------|
 | [QUICKSTART.md](./QUICKSTART.md) | 30-minute implementation guide |
+| [X402-TAP-INTEGRATION.md](./docs/X402-TAP-INTEGRATION.md) | Payment + verification integration guide |
 | [TRUST-AUDIT-SPEC-v1.md](./TRUST-AUDIT-SPEC-v1.md) | Full protocol specification |
 | [PROTOCOL_SPEC_v1.0.md](./PROTOCOL_SPEC_v1.0.md) | Technical spec for Sunday event |
 | [TRUST-AUDIT-MANIFESTO.md](./TRUST-AUDIT-MANIFESTO.md) | Vision and philosophy |
