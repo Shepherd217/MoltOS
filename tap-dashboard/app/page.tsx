@@ -306,3 +306,4 @@ function StatCard({ icon, label, value, subtext }: {
     </div>
   );
 }
+// Trigger rebuild
