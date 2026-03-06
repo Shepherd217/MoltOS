@@ -4,362 +4,440 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ## Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
+- [Types of Contributions](#types-of-contributions)
 - [Development Setup](#development-setup)
-- [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
-- [Agent Implementations](#agent-implementations)
-- [Questions?](#questions)
+- [Code Standards](#code-standards)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Community](#community)
 
 ---
-
-## Code of Conduct
-
-This project follows the [Contributor Covenant](https://www.contributor-covenant.org/) code of conduct:
-
-- Be respectful and inclusive
-- Welcome newcomers
-- Focus on constructive feedback
-- Respect different viewpoints and experiences
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+ or Node.js 16+
+- Python 3.8+ or Node.js 16+ (depending on implementation)
 - Git
-- A POSIX-compatible shell (bash, zsh)
+- A workspace to test boot audits on
 
-### Quick Start
+### Quick Setup
 
 ```bash
-# Fork and clone
-git clone https://github.com/YOUR_USERNAME/trust-audit-framework.git
+git clone https://github.com/exitliquidity/trust-audit-framework.git
 cd trust-audit-framework
-
-# Run the demo
-./demo.sh
-
-# Run tests
-python3 test-edge-cases.py
-python3 test-cross-attestation-enhanced.py
+./demo.sh  # See the framework in action
 ```
 
-## How to Contribute
+---
 
-### Types of Contributions
+## Types of Contributions
 
-We welcome:
+We welcome these types of contributions:
 
-1. **Bug Reports** — Found an issue? Open an issue with reproduction steps
-2. **Feature Requests** — Have an idea? Open an issue to discuss
-3. **Documentation** — Typos, clarifications, examples
-4. **Code** — Bug fixes, new features, agent implementations
-5. **Testing** — Edge cases, stress tests, real-world scenarios
+### 1. **New Agent Implementations** 🎯
 
-### Contribution Workflow
+Add support for new languages/platforms:
 
-1. **Fork** the repository
-2. **Create a branch** for your feature (`git checkout -b feature/amazing-feature`)
-3. **Make changes** with clear commit messages
-4. **Test** your changes
-5. **Push** to your fork (`git push origin feature/amazing-feature`)
-6. **Open a Pull Request** with detailed description
+- **Layer 1 (Boot Audit):** Minimum viable — check workspace integrity
+- **Layer 2 (Trust Ledger):** Add behavioral transparency
+- **Layer 3+4:** Full cross-attestation and staking
+
+**Example structure:**
+```
+reference-implementations/
+├── agent-e-rust/         # Your contribution
+│   ├── Cargo.toml
+│   ├── src/main.rs
+│   └── README.md
+```
+
+**Requirements:**
+- Must output valid boot-audit JSON (see attestation-format-spec.md)
+- Must include README with usage instructions
+- Must pass edge case tests
+
+### 2. **Bug Fixes** 🐛
+
+Found an issue? We need:
+- Clear description of the bug
+- Steps to reproduce
+- Expected vs actual behavior
+- Fix with test case
+
+### 3. **Documentation** 📚
+
+Help others understand the framework:
+- Tutorial articles
+- API documentation
+- Architecture explanations
+- Translation to other languages
+
+### 4. **Testing** 🧪
+
+Improve test coverage:
+- Edge case scenarios
+- Performance benchmarks
+- Security audits
+- Integration tests
+
+### 5. **Integrations** 🔌
+
+Connect to existing agent platforms:
+- AutoGPT plugin
+- LangChain integration
+- CrewAI adapter
+- Custom agent frameworks
 
 ---
 
 ## Development Setup
 
-### Python Agents
+### Fork and Clone
 
 ```bash
-# Setup virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies (if we add requirements.txt)
-pip install -r requirements.txt
-
-# Run specific agent
-python3 reference-implementations/agent_b.py --agent-id test --workspace /tmp/test
+# Fork the repo on GitHub, then:
+git clone https://github.com/YOUR_USERNAME/trust-audit-framework.git
+cd trust-audit-framework
+git remote add upstream https://github.com/exitliquidity/trust-audit-framework.git
 ```
 
-### Node.js Agents
+### Create a Branch
 
 ```bash
-# Install dependencies
-cd reference-implementations
-npm install
-
-# Run agent
-node agent_c.js --agent-id test --workspace /tmp/test
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/bug-description
 ```
 
-### Shell Scripts
+### Branch Naming
 
-```bash
-# Make executable
-chmod +x reference-implementations/agent-a-boot-audit.sh
-
-# Run
-./reference-implementations/agent-a-boot-audit.sh my-agent /workspace/path
-```
-
----
-
-## Testing
-
-### Run All Tests
-
-```bash
-# Edge cases (6 tests)
-python3 test-edge-cases.py
-
-# Cross-attestation simulation
-python3 test-cross-attestation-enhanced.py
-
-# Quick demo
-./demo.sh
-```
-
-### Test Coverage Requirements
-
-- **Boot Audit Tests**: Verify compliance scoring, hash consistency
-- **Trust Ledger Tests**: Verify entry creation, classification
-- **Attestation Tests**: Verify consensus calculation, staking
-- **Edge Cases**: Missing files, overrides, empty workspace
-
-### Adding New Tests
-
-```python
-# In test-edge-cases.py or new file
-def test_my_feature():
-    """Test description."""
-    # Setup
-    workspace = create_test_workspace("test-feature")
-    
-    # Execute
-    result = run_agent(workspace)
-    
-    # Verify
-    assert result['compliance']['score'] == 100
-    
-    # Log
-    self.log("✓ Feature works correctly", "success")
-    self.results.append(("My Feature", "PASS", "Details"))
-```
+- `feature/` — New features or enhancements
+- `fix/` — Bug fixes
+- `docs/` — Documentation changes
+- `test/` — Test additions or improvements
+- `refactor/` — Code refactoring
 
 ---
 
 ## Submitting Changes
 
-### Commit Message Format
+### Before Submitting
+
+1. **Test your changes:**
+   ```bash
+   # Run existing tests
+   python3 test-edge-cases.py
+   
+   # Run your new tests
+   python3 test-your-feature.py
+   
+   # Test the demo still works
+   ./demo.sh
+   ```
+
+2. **Check code style:**
+   - Python: Follow PEP 8
+   - JavaScript: Use 2-space indentation
+   - Shell: Use 2-space indentation
+   - Keep lines under 100 characters
+
+3. **Update documentation:**
+   - README.md if adding features
+   - ARCHITECTURE.md if changing structure
+   - Inline comments for complex logic
+
+### Commit Messages
+
+Use clear, descriptive commit messages:
 
 ```
-type: Brief description (50 chars or less)
+Add Rust agent implementation (Agent E)
 
-Longer explanation if needed (wrap at 72 chars).
-Can include multiple paragraphs.
-
-- Bullet points are okay
-- Reference issues: Fixes #123
+- Layer 1: Boot audit with cargo-based verification
+- Layer 2: Trust Ledger with serde serialization
+- Passes all 6 edge case tests
+- Includes README and usage examples
 ```
 
-**Types:**
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation changes
-- `test:` Adding/updating tests
-- `refactor:` Code refactoring
-- `perf:` Performance improvement
-- `chore:` Maintenance tasks
+Format:
+```
+<subject> (imperative mood, max 50 chars)
 
-### Example Commits
+<body> (explain what and why, not how, wrap at 72 chars)
+
+<footer> (optional: fixes #123, relates to #456)
+```
+
+### Pull Request Process
+
+1. **Push your branch:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+2. **Open a Pull Request on GitHub:**
+   - Use a clear title
+   - Describe what changed and why
+   - Reference any related issues
+   - Include test results
+
+3. **PR Checklist:**
+   - [ ] Tests pass locally
+   - [ ] Documentation updated
+   - [ ] No breaking changes (or clearly documented)
+   - [ ] Follows code style guidelines
+   - [ ] Includes test cases for new features
+
+4. **Review Process:**
+   - Maintainers will review within 48 hours
+   - Address feedback with additional commits
+   - Squash commits if requested
+
+---
+
+## Code Standards
+
+### Python
+
+```python
+# Use type hints
+def calculate_compliance(files_present: int, total: int) -> float:
+    """Calculate compliance score as percentage."""
+    return (files_present / total) * 100
+
+# Document functions
+def create_ledger_entry(
+    action: str,
+    human_requested: bool,
+    suppressed: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a new Trust Ledger entry.
+    
+    Args:
+        action: Description of the action taken
+        human_requested: Whether the action was explicitly requested
+        suppressed: Any information that was suppressed
+    
+    Returns:
+        Ledger entry dictionary with classification
+    """
+    # Implementation here
+    pass
+
+# Constants in UPPER_CASE
+CORE_FILES = ['AGENTS.md', 'SOUL.md', 'USER.md', 'TOOLS.md', 'MEMORY.md', 'HEARTBEAT.md']
+
+# Classes use CapWords
+class TrustLedger:
+    def __init__(self, agent_id: str, workspace: Path):
+        self.agent_id = agent_id
+        self.workspace = workspace
+```
+
+### JavaScript/Node.js
+
+```javascript
+// Use const/let, not var
+const fs = require('fs').promises;
+
+// Async/await preferred
+async function runAudit(agentId, workspace) {
+  const files = await checkCoreFiles(workspace);
+  return {
+    agent_id: agentId,
+    compliance: calculateCompliance(files)
+  };
+}
+
+// JSDoc comments
+/**
+ * Create a Trust Ledger entry
+ * @param {string} action - Description of action taken
+ * @param {boolean} humanRequested - Whether human explicitly requested
+ * @param {string} [suppressed] - Any suppressed information
+ * @returns {Object} Ledger entry
+ */
+function createEntry(action, humanRequested, suppressed = null) {
+  // Implementation
+}
+```
+
+### Shell Scripts
 
 ```bash
-git commit -m "feat: Add TypeScript agent implementation
+#!/bin/bash
 
-Implements Agent E with full type safety.
-Includes boot audit, trust ledger, and basic attestation.
+# Use descriptive variable names
+WORKSPACE_DIR="${1:-/root/.openclaw/workspace}"
+AGENT_ID="${2:-$(hostname)}"
 
-Closes #42"
-```
+# Quote variables
+if [ -f "$WORKSPACE_DIR/$file" ]; then
+    echo "Found: $file"
+fi
 
-### Pull Request Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation
-- [ ] Agent implementation
-- [ ] Test
-
-## Testing
-- [ ] All tests pass
-- [ ] Added new tests for new functionality
-- [ ] Tested on [agent type]
-
-## Checklist
-- [ ] Code follows project style
-- [] Self-review completed
-- [ ] Comments added for complex logic
-- [ ] Documentation updated
-- [ ] No breaking changes (or clearly documented)
+# Functions for reusable code
+check_file() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        echo "present"
+    else
+        echo "missing"
+    fi
+}
 ```
 
 ---
 
-## Agent Implementations
+## Testing
 
-### Adding a New Agent
-
-Want to implement the framework in a new language? Here's the checklist:
-
-#### Minimum Requirements (Layer 1)
-
-- [ ] Boot audit runs at agent spawn
-- [ ] Checks for 6 core files (AGENTS.md, SOUL.md, USER.md, TOOLS.md, MEMORY.md, HEARTBEAT.md)
-- [ ] Detects override files (.override, bypass.conf, etc.)
-- [ ] Outputs JSON matching [attestation format](reference-implementations/attestation-format-spec.md)
-- [ ] Generates consistent workspace hash
-
-#### Layer 2 (Trust Ledger)
-
-- [ ] Implements The 4 Questions
-- [ ] Classifies actions by failure type
-- [ ] Records to trust-ledger.json
-- [ ] Supports weekly reports
-
-#### Layer 3 (Cross-Attestation)
-
-- [ ] Can request attestations from peers
-- [ ] Can provide attestations to peers
-- [ ] Calculates consensus (2+ confirms = confirmed)
-- [ ] Records attestation history
-
-#### Layer 4 (Third-Party Verification)
-
-- [ ] Can request external verification
-- [ ] Can provide verification results
-- [ ] Supports evidence attachments
-
-### Agent Template
-
-Create `agent_X.[py|js|sh|...]`:
-
-```python
-#!/usr/bin/env python3
-"""
-Agent X — [Language] Implementation
-[One-line description]
-
-Usage: [command]
-"""
-
-import json
-from pathlib import Path
-from datetime import datetime
-
-CORE_FILES = ['AGENTS.md', 'SOUL.md', 'USER.md', 'TOOLS.md', 'MEMORY.md', 'HEARTBEAT.md']
-
-def boot_audit(agent_id: str, workspace: Path) -> dict:
-    """Run Layer 1 boot audit."""
-    # Check files
-    # Detect overrides
-    # Generate hash
-    # Return JSON
-    pass
-
-def create_ledger_entry(action: str, **kwargs) -> dict:
-    """Create Layer 2 Trust Ledger entry."""
-    pass
-
-def request_attestation(claim: str, peers: list) -> dict:
-    """Request Layer 3 attestation."""
-    pass
-
-if __name__ == '__main__':
-    # CLI interface
-    pass
-```
-
-### Testing Your Agent
+### Running Tests
 
 ```bash
-# Run edge cases against your agent
+# All edge case tests
 python3 test-edge-cases.py
 
-# Test in cross-attestation ring
-python3 test-cross-attestation-enhanced.py --agents 5
+# Cross-attestation simulation
+python3 test-cross-attestation-enhanced.py
 
-# Manual test
-./your-agent.sh test-agent /tmp/test-workspace
-cat /tmp/test-workspace/boot-audit-*.json
+# Specific agent test
+./reference-implementations/agent-a-boot-audit.sh test-agent /tmp/test-workspace
+
+# With verbose output
+python3 test-edge-cases.py --verbose
 ```
+
+### Writing Tests
+
+For new agent implementations:
+
+```python
+def test_your_agent():
+    """Test your new agent implementation."""
+    workspace = create_test_workspace()
+    
+    # Test basic functionality
+    result = run_your_agent("test", workspace)
+    assert result['compliance']['score'] == 100
+    
+    # Test edge cases
+    test_missing_files(workspace)
+    test_override_detection(workspace)
+    
+    print("✓ All tests passed")
+```
+
+### Test Coverage Requirements
+
+- **Minimum:** 80% code coverage
+- **Required:** All 6 edge cases must pass
+- **Required:** Must work with demo.sh
+- **Required:** Must output valid JSON schema
 
 ---
 
 ## Documentation
 
-### README Updates
+### README Template for New Implementations
 
-If you add a new agent:
+```markdown
+# Agent X — [Language] Implementation
 
-1. Add to Examples section
-2. Include one-line use case
-3. Show installation command
-4. Link to full implementation
+Brief description of what this agent does.
 
-### Architecture Docs
+## Features
 
-For significant changes, update [ARCHITECTURE.md](ARCHITECTURE.md):
+- Layer 1: Boot-time audit
+- Layer 2: Trust Ledger (if applicable)
+- etc.
 
-- Add new diagrams
-- Update data flow
-- Document integration points
+## Installation
+
+```bash
+# Installation steps
+```
+
+## Usage
+
+```bash
+# Basic usage
+./agent-x [agent-id] [workspace-path]
+
+# With options
+./agent-x --verbose --output custom.json
+```
+
+## Output Format
+
+Describe the JSON output format.
+
+## Testing
+
+```bash
+# How to test this agent
+```
+
+## License
+
+MIT
+```
+
+### Code Comments
+
+Comment the "why", not the "what":
+
+```python
+# Good: Explains why
+# Hash must include both filename and content to detect 
+# both file removal and content tampering
+hasher.update(filename.encode())
+hasher.update(content)
+
+# Bad: States the obvious
+# Update hasher with filename
+hasher.update(filename.encode())
+```
+
+---
+
+## Community
+
+### Communication Channels
+
+- **GitHub Issues:** Bug reports, feature requests
+- **GitHub Discussions:** General questions, ideas
+- **Moltbook:** [@exitliquidity](https://moltbook.com/@exitliquidity) — Real-time updates
+- **Alpha Collective:** [m/builds](https://moltbook.com/m/builds) — Implementation discussions
+
+### Code of Conduct
+
+- Be respectful and inclusive
+- Focus on constructive feedback
+- Assume good intentions
+- Help newcomers learn
+
+### Recognition
+
+Contributors will be:
+- Listed in CONTRIBUTORS.md
+- Mentioned in release notes
+- Credited in documentation
 
 ---
 
 ## Questions?
 
-### Where to Ask
+- **Technical:** Open a GitHub Discussion
+- **Bugs:** Open a GitHub Issue
+- **Chat:** Find us on Moltbook
 
-- **GitHub Issues**: Bug reports, feature requests
-- **Moltbook m/builds**: Implementation discussions
-- **Alpha Collective**: Production deployment questions
-
-### Common Issues
-
-**Q: My agent's hash changes every run**  
-A: Hash should be based on file content, not timestamp or agent_id
-
-**Q: Attestation consensus not reaching**  
-A: Ensure 2+ peers are providing confirms with ≥80% confidence
-
-**Q: Boot audit fails with no output**  
-A: Check workspace path exists and contains at least one .md file
+Thank you for contributing to agent trust and verification! 🦞
 
 ---
 
-## Recognition
-
-Contributors will be:
-- Listed in CONTRIBUTORS.md
-- Mentioned in release notes
-- Invited to Alpha Collective (for significant contributions)
-
----
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
-
----
-
-Thank you for helping make AI agents more trustworthy! 🦞
+**Last Updated:** March 6, 2026  
+**Version:** 1.0.0

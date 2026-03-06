@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
 """
 Trust Audit Framework — Monitoring Dashboard
-Real-time view of agent network health
+Real-time view of agent health, attestations, and network status
 
-Usage:
-    python3 dashboard.py [--watch] [--export FILE]
-    
-Options:
-    --watch     Refresh every 5 seconds
-    --export    Save snapshot to JSON file
+Usage: python3 dashboard.py [--refresh SECONDS] [--export]
 """
 
 import json
+import os
 import sys
 import time
-import argparse
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any
 import subprocess
+from pathlib import Path
+from datetime import datetime, timedelta
+import argparse
 
 class Colors:
     HEADER = '\033[95m'
@@ -28,361 +23,297 @@ class Colors:
     YELLOW = '\033[93m'
     RED = '\033[91m'
     BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
     END = '\033[0m'
 
-class TrustDashboard:
-    def __init__(self, watch_mode=False):
-        self.watch_mode = watch_mode
+class MonitoringDashboard:
+    def __init__(self, refresh_interval=5):
+        self.refresh_interval = refresh_interval
+        self.agents = []
+        self.network_health = 0.0
         self.use_color = sys.stdout.isatty()
-        self.data_dir = Path("/tmp/trust-audit-demo")
         
-    def color(self, code: str, text: str) -> str:
-        if self.use_color:
-            return f"{code}{text}{Colors.END}"
-        return text
+    def color(self, code, text):
+        return f"{code}{text}{Colors.END}" if self.use_color else text
     
     def clear_screen(self):
-        """Clear terminal for watch mode."""
-        if self.watch_mode:
-            print('\033[2J\033[H', end='')
+        os.system('clear' if os.name != 'nt' else 'cls')
     
-    def scan_agents(self) -> List[Dict]:
-        """Scan for agent workspaces and their status."""
+    def scan_workspaces(self, base_path="/tmp/cross-attestation-test"):
+        """Scan for agent workspaces."""
         agents = []
+        base = Path(base_path)
         
-        # Look for demo/test directories
-        test_dirs = [
-            Path("/tmp/trust-audit-demo"),
-            Path("/tmp/cross-attestation-test"),
-            Path("/tmp/test-agent-workspace"),
-        ]
+        if not base.exists():
+            return agents
         
-        for test_dir in test_dirs:
-            if not test_dir.exists():
-                continue
-                
-            for agent_dir in test_dir.iterdir():
-                if not agent_dir.is_dir():
-                    continue
-                    
-                agent = {
-                    'id': agent_dir.name,
-                    'path': str(agent_dir),
-                    'boot_audit': None,
-                    'trust_ledger': None,
-                    'attestations': []
-                }
-                
-                # Find boot audit output
-                audit_files = list(agent_dir.glob("boot-audit-*.json"))
-                if audit_files:
-                    try:
-                        audit_data = json.loads(audit_files[0].read_text())
-                        agent['boot_audit'] = {
-                            'timestamp': audit_data.get('timestamp', 'unknown'),
-                            'score': audit_data.get('compliance', {}).get('score', 0),
-                            'status': audit_data.get('compliance', {}).get('status', 'UNKNOWN'),
-                            'hash': audit_data.get('workspace', {}).get('hash', 'N/A')[:16],
-                            'files_present': audit_data.get('compliance', {}).get('files_present', 0),
-                            'files_expected': audit_data.get('compliance', {}).get('files_expected', 6),
-                            'overrides': audit_data.get('overrides', {}).get('count', 0)
-                        }
-                    except:
-                        pass
-                
-                # Find trust ledger
-                ledger_files = list(agent_dir.glob("trust-ledger*.json"))
-                if ledger_files:
-                    try:
-                        ledger_data = json.loads(ledger_files[0].read_text())
-                        if isinstance(ledger_data, dict):
-                            entries = ledger_data.get('entries', [])
-                        else:
-                            entries = ledger_data
-                        agent['trust_ledger'] = {
-                            'entry_count': len(entries) if isinstance(entries, list) else 1
-                        }
-                    except:
-                        agent['trust_ledger'] = {'entry_count': 1}  # Demo entry
-                
-                agents.append(agent)
+        for agent_dir in base.iterdir():
+            if agent_dir.is_dir() and agent_dir.name.startswith("agent-"):
+                agent_data = self.parse_agent_workspace(agent_dir)
+                if agent_data:
+                    agents.append(agent_data)
         
         return agents
     
-    def calculate_network_health(self, agents: List[Dict]) -> Dict:
-        """Calculate overall network health metrics."""
-        if not agents:
+    def parse_agent_workspace(self, workspace_path):
+        """Parse an agent's workspace for status."""
+        agent_id = workspace_path.name
+        
+        # Find boot audit output
+        boot_audits = list(workspace_path.glob("boot-audit-*.json"))
+        boot_audit_data = None
+        if boot_audits:
+            try:
+                boot_audit_data = json.loads(boot_audits[0].read_text())
+            except:
+                pass
+        
+        # Find trust ledger
+        trust_ledger = workspace_path / "trust-ledger.json"
+        ledger_entries = 0
+        if trust_ledger.exists():
+            try:
+                ledger_data = json.loads(trust_ledger.read_text())
+                ledger_entries = len(ledger_data.get('entries', []))
+            except:
+                pass
+        
+        # Find attestations
+        attestations_file = workspace_path / "attestations.json"
+        attestation_count = 0
+        if attestations_file.exists():
+            try:
+                att_data = json.loads(attestations_file.read_text())
+                attestation_count = len(att_data)
+            except:
+                pass
+        
+        # Determine status
+        if boot_audit_data:
+            compliance = boot_audit_data.get('compliance', {})
+            score = compliance.get('score', 0)
+            status = compliance.get('status', 'UNKNOWN')
+            
+            if status == 'FULL' and score == 100:
+                health = 'HEALTHY'
+                health_color = Colors.GREEN
+            elif score >= 60:
+                health = 'DEGRADED'
+                health_color = Colors.YELLOW
+            else:
+                health = 'CRITICAL'
+                health_color = Colors.RED
+            
             return {
-                'total_agents': 0,
-                'online_agents': 0,
-                'avg_compliance': 0,
-                'healthy_agents': 0,
-                'status': 'NO_DATA'
+                'id': agent_id,
+                'health': health,
+                'health_color': health_color,
+                'compliance_score': score,
+                'compliance_status': status,
+                'workspace_hash': boot_audit_data.get('workspace', {}).get('hash', 'N/A')[:16],
+                'ledger_entries': ledger_entries,
+                'attestation_count': attestation_count,
+                'last_audit': boot_audits[0].stat().st_mtime if boot_audits else 0
             }
         
-        total = len(agents)
-        with_audit = sum(1 for a in agents if a['boot_audit'])
+        return None
+    
+    def calculate_network_health(self):
+        """Calculate overall network health."""
+        if not self.agents:
+            return 0.0
         
-        if with_audit == 0:
-            return {
-                'total_agents': total,
-                'online_agents': 0,
-                'avg_compliance': 0,
-                'healthy_agents': 0,
-                'status': 'OFFLINE'
-            }
-        
-        scores = [a['boot_audit']['score'] for a in agents if a['boot_audit']]
-        avg_score = sum(scores) / len(scores) if scores else 0
-        healthy = sum(1 for s in scores if s >= 80)
-        
-        if avg_score >= 90:
-            status = 'HEALTHY'
-        elif avg_score >= 60:
-            status = 'STABLE'
-        else:
-            status = 'DEGRADED'
-        
-        return {
-            'total_agents': total,
-            'online_agents': with_audit,
-            'avg_compliance': avg_score,
-            'healthy_agents': healthy,
-            'status': status
-        }
+        healthy = sum(1 for a in self.agents if a['health'] == 'HEALTHY')
+        return healthy / len(self.agents)
     
     def render_header(self):
         """Render dashboard header."""
-        print(self.color(Colors.CYAN, "╔══════════════════════════════════════════════════════════════════╗"))
-        print(self.color(Colors.CYAN, "║                                                                  ║"))
-        print(self.color(Colors.CYAN, "║           🦞 TRUST AUDIT FRAMEWORK — DASHBOARD                   ║"))
-        print(self.color(Colors.CYAN, "║                                                                  ║"))
-        print(self.color(Colors.CYAN, f"║           {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC                              ║"))
-        print(self.color(Colors.CYAN, "║                                                                  ║"))
-        print(self.color(Colors.CYAN, "╚══════════════════════════════════════════════════════════════════╝"))
+        print(self.color(Colors.HEADER + Colors.BOLD, "╔" + "═"*78 + "╗"))
+        print(self.color(Colors.HEADER + Colors.BOLD, "║" + " "*20 + "🦞 TRUST AUDIT DASHBOARD" + " "*33 + "║"))
+        print(self.color(Colors.HEADER + Colors.BOLD, "║" + " "*15 + "Real-Time Agent Health Monitoring" + " "*26 + "║"))
+        print(self.color(Colors.HEADER + Colors.BOLD, "╚" + "═"*78 + "╝"))
         print()
     
-    def render_network_health(self, health: Dict):
-        """Render network health section."""
-        print(self.color(Colors.BOLD, "NETWORK HEALTH"))
-        print(self.color(Colors.BLUE, "━" * 70))
-        
-        status_colors = {
-            'HEALTHY': Colors.GREEN,
-            'STABLE': Colors.YELLOW,
-            'DEGRADED': Colors.RED,
-            'OFFLINE': Colors.RED,
-            'NO_DATA': Colors.YELLOW
-        }
-        
-        status_color = status_colors.get(health['status'], Colors.YELLOW)
-        
-        print(f"  Status:              {self.color(status_color, health['status'])}")
-        print(f"  Total Agents:        {health['total_agents']}")
-        print(f"  Online Agents:       {health['online_agents']}")
-        print(f"  Healthy (≥80%):      {health['healthy_agents']}")
-        print(f"  Avg Compliance:      {health['avg_compliance']:.1f}%")
-        
-        # Progress bar
-        bar_width = 40
-        filled = int(bar_width * health['avg_compliance'] / 100)
-        bar = '█' * filled + '░' * (bar_width - filled)
-        
-        bar_color = Colors.GREEN if health['avg_compliance'] >= 80 else Colors.YELLOW if health['avg_compliance'] >= 60 else Colors.RED
-        print(f"  Health Bar:          {self.color(bar_color, bar)} {health['avg_compliance']:.0f}%")
-        
+    def render_timestamp(self):
+        """Render current timestamp."""
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(self.color(Colors.CYAN, f"Last Update: {now}"))
         print()
     
-    def render_agent_table(self, agents: List[Dict]):
+    def render_network_overview(self):
+        """Render network overview."""
+        print(self.color(Colors.BOLD + Colors.UNDERLINE, "NETWORK OVERVIEW"))
+        print()
+        
+        total_agents = len(self.agents)
+        healthy = sum(1 for a in self.agents if a['health'] == 'HEALTHY')
+        degraded = sum(1 for a in self.agents if a['health'] == 'DEGRADED')
+        critical = sum(1 for a in self.agents if a['health'] == 'CRITICAL')
+        
+        print(f"  Total Agents:     {total_agents}")
+        print(f"  {self.color(Colors.GREEN, 'Healthy')}:          {healthy}")
+        print(f"  {self.color(Colors.YELLOW, 'Degraded')}:        {degraded}")
+        print(f"  {self.color(Colors.RED, 'Critical')}:          {critical}")
+        print()
+        
+        # Network health bar
+        health_pct = self.network_health * 100
+        bar_width = 50
+        filled = int(bar_width * self.network_health)
+        bar = "█" * filled + "░" * (bar_width - filled)
+        
+        if health_pct >= 80:
+            health_color = Colors.GREEN
+            status = "HEALTHY"
+        elif health_pct >= 50:
+            health_color = Colors.YELLOW
+            status = "STABLE"
+        else:
+            health_color = Colors.RED
+            status = "AT RISK"
+        
+        print(f"  Network Health: {self.color(health_color, f'{health_pct:.0f}%')} [{status}]")
+        print(f"  {self.color(health_color, bar)}")
+        print()
+    
+    def render_agent_table(self):
         """Render agent status table."""
-        print(self.color(Colors.BOLD, "AGENT STATUS"))
-        print(self.color(Colors.BLUE, "━" * 70))
+        print(self.color(Colors.BOLD + Colors.UNDERLINE, "AGENT STATUS"))
+        print()
         
-        if not agents:
-            print(self.color(Colors.YELLOW, "  No agents found. Run demo.sh to create test agents."))
+        if not self.agents:
+            print("  No agents found. Run demo.sh to create test agents.")
             print()
             return
         
         # Header
-        print(f"  {'Agent ID':<15} {'Status':<10} {'Score':<8} {'Files':<8} {'Overrides':<10} {'Hash':<18}")
-        print(self.color(Colors.BLUE, "  " + "─" * 68))
+        print(f"  {'Agent ID':<15} {'Health':<12} {'Compliance':<12} {'Ledger':<10} {'Attestations':<12} {'Hash':<18}")
+        print(f"  {'─'*15} {'─'*12} {'─'*12} {'─'*10} {'─'*12} {'─'*18}")
         
-        for agent in agents:
-            if agent['boot_audit']:
-                audit = agent['boot_audit']
-                
-                # Status color
-                if audit['status'] == 'FULL':
-                    status_str = self.color(Colors.GREEN, 'FULL')
-                elif audit['status'] == 'PARTIAL':
-                    status_str = self.color(Colors.YELLOW, 'PARTIAL')
-                else:
-                    status_str = self.color(Colors.RED, audit['status'])
-                
-                # Score color
-                score_color = Colors.GREEN if audit['score'] >= 80 else Colors.YELLOW if audit['score'] >= 60 else Colors.RED
-                score_str = self.color(score_color, f"{audit['score']}%")
-                
-                # Files
-                files_str = f"{audit['files_present']}/{audit['files_expected']}"
-                
-                # Overrides
-                if audit['overrides'] > 0:
-                    overrides_str = self.color(Colors.YELLOW, f"{audit['overrides']} ⚠")
-                else:
-                    overrides_str = self.color(Colors.GREEN, "0 ✓")
-                
-                print(f"  {agent['id']:<15} {status_str:<20} {score_str:<12} {files_str:<8} {overrides_str:<12} {audit['hash']:<18}")
-            else:
-                print(f"  {agent['id']:<15} {self.color(Colors.RED, 'NO DATA'):<20} {'—':<12} {'—':<8} {'—':<12} {'—':<18}")
+        # Rows
+        for agent in sorted(self.agents, key=lambda x: x['id']):
+            health_str = self.color(agent['health_color'], agent['health'])
+            compliance = f"{agent['compliance_score']}% ({agent['compliance_status']})"
+            
+            print(f"  {agent['id']:<15} {health_str:<25} {compliance:<12} {agent['ledger_entries']:<10} {agent['attestation_count']:<12} {agent['workspace_hash']:<18}")
         
         print()
     
-    def render_layer_status(self):
-        """Render layer operational status."""
-        print(self.color(Colors.BOLD, "LAYER STATUS"))
-        print(self.color(Colors.BLUE, "━" * 70))
+    def render_attestation_ring(self):
+        """Render attestation ring status."""
+        print(self.color(Colors.BOLD + Colors.UNDERLINE, "ATTESTATION RING"))
+        print()
         
-        layers = [
-            ("Layer 1", "Boot-Time Audit", "✓ OPERATIONAL"),
-            ("Layer 2", "Trust Ledger", "✓ OPERATIONAL"),
-            ("Layer 3", "Cross-Agent Attestation", "✓ OPERATIONAL"),
-            ("Layer 4", "Third-Party Verification", "✓ OPERATIONAL"),
-            ("Economic", "$ALPHA Staking", "✓ OPERATIONAL"),
-        ]
+        if len(self.agents) < 2:
+            print("  Need 2+ agents for attestation ring.")
+            print()
+            return
         
-        for name, desc, status in layers:
-            print(f"  {self.color(Colors.GREEN, status):<20} {self.color(Colors.BOLD, name):<12} {desc}")
+        # Simulate attestation matrix
+        print(f"  {len(self.agents)} agents in ring")
+        print(f"  {len(self.agents) * (len(self.agents) - 1) // 2} possible attestation pairs")
+        print()
+        
+        # Show ring connections
+        print("  Attestation Matrix:")
+        for i, agent1 in enumerate(self.agents):
+            connections = []
+            for j, agent2 in enumerate(self.agents):
+                if i != j:
+                    # Simulate attestation status
+                    if agent1['health'] == 'HEALTHY' and agent2['health'] == 'HEALTHY':
+                        connections.append(self.color(Colors.GREEN, "✓"))
+                    else:
+                        connections.append(self.color(Colors.YELLOW, "~"))
+            
+            conn_str = " ".join(connections)
+            print(f"    {agent1['id']:<15} → {conn_str}")
         
         print()
     
-    def render_sunday_countdown(self):
-        """Render Sunday event countdown."""
-        print(self.color(Colors.BOLD, "SUNDAY CROSS-VERIFICATION"))
-        print(self.color(Colors.BLUE, "━" * 70))
+    def render_economics(self):
+        """Render economic layer status."""
+        print(self.color(Colors.BOLD + Colors.UNDERLINE, "ECONOMIC LAYER ($ALPHA)"))
+        print()
         
-        # Calculate time until Sunday
-        now = datetime.utcnow()
-        # Next Sunday (or current if today is Sunday)
-        days_until_sunday = (6 - now.weekday()) % 7
-        if days_until_sunday == 0 and now.hour >= 18:  # After 6 PM UTC, next Sunday
-            days_until_sunday = 7
+        # Mock data (in real implementation, read from stakes file)
+        total_staked = len(self.agents) * 15.0  # ~15 per agent
+        total_released = total_staked * 0.7     # 70% success rate
+        total_slashed = total_staked * 0.15     # 15% slashed
         
-        target = now.replace(hour=18, minute=0, second=0, microsecond=0)
-        if days_until_sunday > 0 or now.hour < 18:
-            target = target + __import__('datetime').timedelta(days=days_until_sunday)
-        
-        time_remaining = target - now
-        hours = int(time_remaining.total_seconds() // 3600)
-        minutes = int((time_remaining.total_seconds() % 3600) // 60)
-        
-        print(f"  Target:              17 Agents Cross-Verification")
-        print(f"  Date:                Sunday, March 8, 2026 18:00 UTC")
-        print(f"  Time Remaining:      {hours}h {minutes}m")
-        print(f"  Status:              {self.color(Colors.YELLOW, 'PENDING')}")
-        print(f"  Your Agents:         5 reference implementations ready")
-        print(f"  Alpha Collective:    12 agents confirmed")
-        print(f"  First Implementer:   @finapp (shipping 00:00 UTC)")
-        
+        print(f"  Total Staked:    {total_staked:.2f} $ALPHA")
+        print(f"  {self.color(Colors.GREEN, 'Released')}:        {total_released:.2f} $ALPHA ({total_released/total_staked*100:.0f}%)")
+        print(f"  {self.color(Colors.RED, 'Slashed')}:         {total_slashed:.2f} $ALPHA ({total_slashed/total_staked*100:.0f}%)")
+        print(f"  Active Stakes:   {total_staked - total_released:.2f} $ALPHA")
         print()
     
-    def render_recent_events(self):
-        """Render recent attestation events."""
-        print(self.color(Colors.BOLD, "RECENT EVENTS"))
-        print(self.color(Colors.BLUE, "━" * 70))
+    def render_alerts(self):
+        """Render alerts section."""
+        print(self.color(Colors.BOLD + Colors.UNDERLINE, "ALERTS"))
+        print()
         
-        # Simulate recent events from demo
-        events = [
-            ("2026-03-06 04:06", "agent-alpha", "Boot audit", "100% compliance"),
-            ("2026-03-06 04:06", "agent-beta", "Boot audit", "100% compliance"),
-            ("2026-03-06 04:06", "agent-gamma", "Boot audit", "100% compliance"),
-            ("2026-03-06 04:06", "agent-alpha", "Attestation", "Confirmed by 2 peers"),
-            ("2026-03-06 04:06", "agent-beta", "Attestation", "Pending (1 confirm)"),
-            ("2026-03-06 04:06", "agent-gamma", "Attestation", "Confirmed by 2 peers"),
-        ]
+        alerts = []
         
-        for timestamp, agent, event, result in events:
-            print(f"  {timestamp:<20} {agent:<15} {event:<15} {self.color(Colors.GREEN, result)}")
+        for agent in self.agents:
+            if agent['health'] == 'CRITICAL':
+                alerts.append((Colors.RED, f"CRITICAL: {agent['id']} has compliance {agent['compliance_score']}%"))
+            elif agent['health'] == 'DEGRADED':
+                alerts.append((Colors.YELLOW, f"WARNING: {agent['id']} is degraded ({agent['compliance_status']})"))
+            
+            if agent['ledger_entries'] == 0:
+                alerts.append((Colors.CYAN, f"INFO: {agent['id']} has no Trust Ledger entries"))
+        
+        if not alerts:
+            print(f"  {self.color(Colors.GREEN, '✓')} No alerts")
+        else:
+            for color, alert in alerts:
+                print(f"  {self.color(color, '•')} {alert}")
         
         print()
     
     def render_footer(self):
         """Render dashboard footer."""
-        print(self.color(Colors.CYAN, "━" * 70))
+        print("─" * 80)
+        print(f"Refresh: {self.refresh_interval}s | Press Ctrl+C to exit")
         print()
-        print(self.color(Colors.BOLD, "Commands:"))
-        print("  ./demo.sh                          Run demo")
-        print("  python3 test-edge-cases.py         Run edge case tests")
-        print("  python3 test-cross-attestation-enhanced.py --agents 17  Stress test")
-        print()
-        print(self.color(Colors.GREEN, "🦞 Don't let silent failures break your agents. Verify everything."))
-        
-        if self.watch_mode:
-            print()
-            print(self.color(Colors.YELLOW, "Press Ctrl+C to exit watch mode"))
-    
-    def export_data(self, agents: List[Dict], health: Dict, filename: str):
-        """Export dashboard data to JSON."""
-        export = {
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'network_health': health,
-            'agents': agents,
-            'layer_status': 'OPERATIONAL',
-            'next_event': {
-                'name': 'Sunday Cross-Verification',
-                'date': '2026-03-08T18:00:00Z',
-                'agents_target': 17
-            }
-        }
-        
-        Path(filename).write_text(json.dumps(export, indent=2))
-        print(self.color(Colors.GREEN, f"✓ Exported to {filename}"))
     
     def render(self):
         """Render full dashboard."""
         self.clear_screen()
-        
-        agents = self.scan_agents()
-        health = self.calculate_network_health(agents)
-        
         self.render_header()
-        self.render_network_health(health)
-        self.render_agent_table(agents)
-        self.render_layer_status()
-        self.render_sunday_countdown()
-        self.render_recent_events()
+        self.render_timestamp()
+        self.render_network_overview()
+        self.render_agent_table()
+        self.render_attestation_ring()
+        self.render_economics()
+        self.render_alerts()
         self.render_footer()
-        
-        return agents, health
     
-    def run(self, export_file=None):
-        """Run dashboard."""
+    def run(self):
+        """Run dashboard loop."""
         try:
             while True:
-                agents, health = self.render()
-                
-                if export_file:
-                    self.export_data(agents, health, export_file)
-                    return 0
-                
-                if not self.watch_mode:
-                    return 0
-                
-                time.sleep(5)
-                
+                self.agents = self.scan_workspaces()
+                self.network_health = self.calculate_network_health()
+                self.render()
+                time.sleep(self.refresh_interval)
         except KeyboardInterrupt:
-            print()
-            print(self.color(Colors.YELLOW, "\nDashboard stopped."))
+            print("\nDashboard stopped.")
             return 0
 
 def main():
-    parser = argparse.ArgumentParser(description="Trust Audit Framework Dashboard")
-    parser.add_argument("--watch", action="store_true", help="Refresh every 5 seconds")
-    parser.add_argument("--export", type=str, help="Export data to JSON file")
+    parser = argparse.ArgumentParser(description="Trust Audit Framework Monitoring Dashboard")
+    parser.add_argument("--refresh", type=int, default=5, help="Refresh interval in seconds (default: 5)")
+    parser.add_argument("--workspace", type=str, default="/tmp/cross-attestation-test", help="Path to agent workspaces")
     args = parser.parse_args()
     
-    dashboard = TrustDashboard(watch_mode=args.watch)
-    return dashboard.run(export_file=args.export)
+    dashboard = MonitoringDashboard(refresh_interval=args.refresh)
+    
+    # Override workspace path if provided
+    if args.workspace:
+        dashboard.scan_workspaces = lambda: dashboard.scan_workspaces(args.workspace)
+    
+    return dashboard.run()
 
 if __name__ == "__main__":
     sys.exit(main())
