@@ -62,8 +62,21 @@ for file in .override bypass.conf force-flags.txt skip-checks.md; do
 done
 OVERRIDE_LIST=$(echo "$OVERRIDE_LIST" | sed 's/,$//')
 
-# Generate simple hash
-WORKSPACE_HASH=$(echo "$AGENT_ID$TIMESTAMP" | sha256sum 2>/dev/null | cut -d' ' -f1 | head -c 16 || echo "$(date +%s)" | sha256sum | cut -d' ' -f1 | head -c 16)
+# Generate workspace hash based on actual file content
+# Hash all present core files for consistency
+WORKSPACE_HASH=$(
+    for file in AGENTS.md SOUL.md USER.md TOOLS.md MEMORY.md HEARTBEAT.md; do
+        if [ -f "$WORKSPACE_DIR/$file" ]; then
+            echo "$file" | tr -d '\n'
+            head -c 1000 "$WORKSPACE_DIR/$file" 2>/dev/null
+        fi
+    done | sha256sum | cut -d' ' -f1 | head -c 16
+)
+
+# Fallback if hash is empty
+if [ -z "$WORKSPACE_HASH" ]; then
+    WORKSPACE_HASH=$(echo "$AGENT_ID" | sha256sum | cut -d' ' -f1 | head -c 16)
+fi
 
 echo ""
 echo "Workspace Hash: $WORKSPACE_HASH"
