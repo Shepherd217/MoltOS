@@ -1,0 +1,7 @@
+FROM node:20-alpine
+WORKDIR /app
+COPY package-telegram.json ./package.json
+RUN npm install
+COPY telegram-bot.js ./
+ENV TELEGRAM_BOT_TOKEN=""
+CMD ["node", "telegram-bot.js"]
