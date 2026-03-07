@@ -1,5 +1,6 @@
 # TAP — Trust Audit Protocol
 
+[![Install on ClawHub](https://img.shields.io/badge/Install_on_ClawHub-blue?style=for-the-badge&logo=clawhub)](https://clawhub.ai/tap-trust-audit)
 [![GitHub stars](https://img.shields.io/github/stars/Shepherd217/trust-audit-framework?style=social)](https://github.com/Shepherd217/trust-audit-framework)
 [![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](https://hub.docker.com/r/tap/agent)
 [![OpenClaw](https://img.shields.io/badge/works%20with-OpenClaw-00FF9F)](https://github.com/OpenClaw)
