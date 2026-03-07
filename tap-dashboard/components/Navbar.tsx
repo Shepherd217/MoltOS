@@ -21,7 +21,7 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#050507]/95 backdrop-blur-md border-b border-[#27272A]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
-        {/* Logo + TAP Gradient */}
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
           <span className="text-3xl">🦞</span>
           <span className="text-2xl font-bold bg-gradient-to-r from-[#00FF9F] to-[#00E5FF] bg-clip-text text-transparent">
@@ -29,38 +29,34 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation - Only show on md+ */}
-        <div className="hidden md:flex md:items-center">
-          {navLinks.map((link, index) => (
-            <span key={link.href} className="flex items-center">
-              <Link
-                href={link.href}
-                className={`text-base font-medium transition-colors px-4 py-2 ${
-                  pathname === link.href 
-                    ? 'text-[#00FF9F]' 
-                    : 'text-white/70 hover:text-white'
-                }`}
-              >
-                {link.label}
-              </Link>
-              {index < navLinks.length - 1 && (
-                <span className="text-white/20 px-1">|</span>
-              )}
-            </span>
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-8">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`text-base font-medium transition-colors ${
+                pathname === link.href 
+                  ? 'text-[#00FF9F]' 
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              {link.label}
+            </Link>
           ))}
         </div>
 
-        {/* Mobile Hamburger - Only show on mobile */}
+        {/* Mobile Hamburger */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="flex md:hidden text-white p-2"
+          className="md:hidden text-white p-2"
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Clean dropdown */}
       {mobileOpen && (
         <div className="md:hidden bg-[#161B22] border-b border-[#27272A] px-4 py-4">
           {navLinks.map((link) => (
@@ -68,7 +64,7 @@ export default function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className={`block py-3 text-lg font-medium border-b border-[#27272A] last:border-0 ${
+              className={`block py-3 transition-colors ${
                 pathname === link.href ? 'text-[#00FF9F]' : 'text-white/80'
               }`}
             >
