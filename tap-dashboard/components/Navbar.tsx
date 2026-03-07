@@ -29,13 +29,13 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation – FIXED SPACING */}
-        <div className="hidden md:flex items-center gap-x-10">
+        {/* Desktop Navigation – SPACING VIA MARGIN */}
+        <div className="hidden md:flex items-center">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-base font-medium transition-colors ${
+              className={`text-base font-medium transition-colors mx-5 lg:mx-8 ${
                 pathname === link.href 
                   ? 'text-[#00FF9F]' 
                   : 'text-white/70 hover:text-white'
