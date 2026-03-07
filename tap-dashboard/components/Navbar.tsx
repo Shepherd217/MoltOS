@@ -29,12 +29,18 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-8">
+        {/* Desktop Navigation - Explicitly hidden on mobile */}
+        <div 
+          className="items-center"
+          style={{ 
+            display: 'none'
+          }}
+        >
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
+              style={{ marginRight: '24px' }}
               className={`text-base font-medium transition-colors ${
                 pathname === link.href 
                   ? 'text-[#00FF9F]' 
@@ -46,19 +52,52 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Mobile Hamburger */}
+        {/* Desktop - Media query override */}
+        <style>{`
+          @media (min-width: 768px) {
+            .desktop-nav {
+              display: flex !important;
+            }
+          }
+        `}</style>
+        <div className="desktop-nav items-center">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{ marginRight: '24px' }}
+              className={`text-base font-medium transition-colors ${
+                pathname === link.href 
+                  ? 'text-[#00FF9F]' 
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Mobile Hamburger - Hidden on desktop */}
+        <style>{`
+          @media (min-width: 768px) {
+            .mobile-menu-btn {
+              display: none !important;
+            }
+          }
+        `}</style>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden text-white p-2"
+          className="mobile-menu-btn text-white p-2"
+          style={{ display: 'block' }}
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
-      {/* Mobile Menu - Clean dropdown */}
+      {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-[#161B22] border-b border-[#27272A] px-4 py-4">
+        <div className="bg-[#161B22] border-b border-[#27272A] px-4 py-4">
           {navLinks.map((link) => (
             <Link
               key={link.href}
