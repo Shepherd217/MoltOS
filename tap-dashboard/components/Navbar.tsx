@@ -29,27 +29,31 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation – SPACING VIA MARGIN */}
-        <div className="hidden md:flex items-center">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-base font-medium transition-colors mx-5 lg:mx-8 ${
-                pathname === link.href 
-                  ? 'text-[#00FF9F]' 
-                  : 'text-white/70 hover:text-white'
-              }`}
-            >
-              {link.label}
-            </Link>
+        {/* Desktop Navigation - Only show on md+ */}
+        <div className="hidden md:flex md:items-center">
+          {navLinks.map((link, index) => (
+            <span key={link.href} className="flex items-center">
+              <Link
+                href={link.href}
+                className={`text-base font-medium transition-colors px-4 py-2 ${
+                  pathname === link.href 
+                    ? 'text-[#00FF9F]' 
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                {link.label}
+              </Link>
+              {index < navLinks.length - 1 && (
+                <span className="text-white/20 px-1">|</span>
+              )}
+            </span>
           ))}
         </div>
 
-        {/* Mobile Hamburger */}
+        {/* Mobile Hamburger - Only show on mobile */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden text-white p-2"
+          className="flex md:hidden text-white p-2"
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
