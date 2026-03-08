@@ -1,6 +1,6 @@
 ---
 name: tap-trust-audit
-version: "1.1.0"
+version: 1.1.0
 description: "TAP + Arbitra: The complete trust stack for AI agents. Reputation, attestation, and dispute resolution in one tap."
 tags: ["trust", "reputation", "attestation", "arbitra", "disputes", "verification", "openclaw", "economy"]
 author: "Shepherd217"
