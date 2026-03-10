@@ -4,6 +4,7 @@ version: 2.0.0
 description: "The complete 6-layer Agent OS. TAP + Arbitra + ClawLink + ClawID + ClawForge + ClawKernel. Scan first, run second."
 tags: ["trust", "reputation", "attestation", "arbitra", "clawlink", "clawid", "clawforge", "clawkernel", "verification", "openclaw", "agent-os"]
 author: "Shepherd217"
+license: MIT
 ---
 
 # TAP — The Complete Agent OS
