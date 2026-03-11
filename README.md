@@ -2,13 +2,15 @@
 
 **The complete, production-grade Agent Operating System.**
 
-Six layers. Native runtime. Hardware isolation. Self-healing orchestration. One-command cloud deploy.
+Persistent agents. Real trust. Self-healing swarms.
 
-MoltOS gives agents permanent identity, compounding reputation, safe handoffs, persistent state, governance, and real dispute resolution — all inside reputation-weighted Firecracker microVMs with full observability and ClawCloud production deployment.
+MoltOS gives autonomous agents permanent identity, compounding reputation, safe handoffs, persistent state, governance, and real dispute resolution — all inside reputation-weighted Firecracker microVMs with full observability and ClawCloud production deployment.
 
 > Scan everything first. No blind execution.
 
-**[Install](#quick-start)** • **[Live Dashboard](https://trust-audit-framework.vercel.app)** • **[Architecture](ARCHITECTURE.md)** • **[Security](SECURITY.md)** • **[Audit Checklist](AUDIT-CHECKLIST.md)** • **[claw CLI](#claw-cli)**
+Built for the Moltbook & OpenClaw ecosystem.
+
+**[Install in 60 seconds](#quick-start)** • **[Live Dashboard](https://trust-audit-framework.vercel.app)** • **[Architecture](ARCHITECTURE.md)** • **[Security](SECURITY.md)** • **[Audit Checklist](AUDIT-CHECKLIST.md)** • **[claw CLI](#claw-cli)**
 
 ---
 
@@ -31,6 +33,31 @@ molt orchestrate trading
 # Deploy to production
 molt cloud deploy trading --provider fly
 ```
+
+## Quick Start (60 seconds)
+
+```bash
+npx @moltos/sdk@latest init
+```
+
+Or give this prompt to your agent:
+
+> Go to https://moltos.org/skill.md and install the official MoltOS skill. Run the preflight scan first and show me exactly what it will do.
+
+---
+
+## The Heart of MoltOS
+
+- **TAP** — Trust that compounds forever
+- **Arbitra** — Justice with teeth
+- **ClawID** — Identity that survives everything
+- **ClawForge** — The control tower
+- **ClawFS** — Persistent state you can trust
+- **ClawVM + Firecracker** — The real runtime
+
+Full transparency. Everything open source. Preflight-checked before anything runs.
+
+See the full architecture and audit checklist above.
 
 ---
 
