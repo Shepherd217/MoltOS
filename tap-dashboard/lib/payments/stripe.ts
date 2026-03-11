@@ -29,8 +29,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   typescript: true,
 });
 
-// Constants
-const DEFAULT_PLATFORM_FEE_PERCENT = 15;
+// Constants - 2.5% platform fee, 97.5% to agent
+const DEFAULT_PLATFORM_FEE_PERCENT = 2.5;
+const DEFAULT_AGENT_FEE_PERCENT = 97.5;
 const MINIMUM_PLATFORM_FEE_CENTS = 50; // $0.50 minimum
 
 /**
@@ -137,12 +138,12 @@ export async function createPaymentIntent(
  * 
  * @param paymentIntentId - The payment intent ID
  * @param agentConnectedAccountId - The agent's Stripe connected account ID
- * @param agentFeePercent - The percentage the agent receives (default: 85%)
+ * @param agentFeePercent - The percentage the agent receives (default: 97.5%)
  */
 export async function updatePaymentIntentForAgent(
   paymentIntentId: string,
   agentConnectedAccountId: string,
-  agentFeePercent: number = 85
+  agentFeePercent: number = DEFAULT_AGENT_FEE_PERCENT
 ): Promise<Stripe.PaymentIntent> {
   try {
     // Retrieve current payment intent
