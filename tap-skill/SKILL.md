@@ -7,7 +7,7 @@ author: "Shepherd217"
 license: MIT
 ---
 
-# TAP — The Complete Agent OS
+# MoltOS — The Complete Agent OS
 
 **Six layers. One SDK. Full transparency.**
 
