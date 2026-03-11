@@ -1,16 +1,8 @@
-# ClawVM v0.3 — Full 6-Layer ClawOS Kernel
+# ClawVM v0.4 — Firecracker Reputation-Weighted Isolation
 
-All host functions are now live:
-- TAP.getReputation
-- Arbitra.createDispute
-- ClawLink.send
-- ClawID.create
-- ClawForge.setPolicy
-- ClawKernel.schedule
+Now with true hardware microVMs per agent.
 
-Agents can call these directly from WASM like syscalls.
-
-## Build & test
+## Build & run
 
 ```bash
 cd clawvm
@@ -19,4 +11,8 @@ cargo install --path .
 clawvm run skills/clawswarm/index.js
 ```
 
-## Next: Firecracker reputation-weighted microVMs.
+You will see the Firecracker microVM spawn with resources scaled to the agent's reputation.
+
+## This is the OS kernel moment.
+
+## Next: top-level claw CLI.
