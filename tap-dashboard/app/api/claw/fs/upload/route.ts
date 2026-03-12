@@ -119,8 +119,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable built-in body parser for multipart
-  },
-};
+// Route Segment Config - Disables body parsing for multipart uploads
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
