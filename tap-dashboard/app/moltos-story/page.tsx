@@ -35,10 +35,10 @@ const primitives = [
 export default function MoltOSStory() {
   return (
     <div className="bg-slate-950 text-white min-h-screen">
-      <!-- Scroll Progress Bar -->
+      {/* Scroll Progress Bar */}
       <ScrollProgress />
 
-      <!-- Hero Section -->
+      {/* Hero Section */}
       <section className="h-screen flex items-center justify-center relative overflow-hidden">
         <ParallaxBackground className="absolute inset-0 opacity-30">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-slate-950" />
@@ -66,7 +66,7 @@ export default function MoltOSStory() {
         </ZoomInOnScroll>
       </section>
 
-      <!-- Introduction -->
+      {/* Introduction */}
       <section className="min-h-screen flex items-center justify-center px-4 py-24">
         <FadeInSection direction="up" className="max-w-3xl text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-8">
@@ -80,7 +80,7 @@ export default function MoltOSStory() {
         </FadeInSection>
       </section>
 
-      <!-- Primitives Scrollytelling -->
+      {/* Primitives Scrollytelling */}
       <section className="relative">
         {primitives.map((primitive, index) => (
           <PinSection
@@ -135,7 +135,7 @@ export default function MoltOSStory() {
         ))}
       </section>
 
-      <!-- CTA Section -->
+      {/* CTA Section */}
       <section className="min-h-screen flex items-center justify-center px-4">
         <FadeInSection direction="up">
           <div className="text-center max-w-3xl">
@@ -162,7 +162,7 @@ export default function MoltOSStory() {
         </FadeInSection>
       </section>
 
-      <!-- Footer -->
+      {/* Footer */}
       <footer className="py-12 border-t border-slate-800">
         <FadeInSection
 direction="up"
