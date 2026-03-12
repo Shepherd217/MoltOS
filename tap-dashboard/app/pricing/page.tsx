@@ -268,10 +268,11 @@ function ParticleBackground() {
 }
 
 // Check icon component
-function CheckIcon({ className = "" }: { className?: string }) {
+function CheckIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg
       className={className}
+      style={style}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -287,10 +288,11 @@ function CheckIcon({ className = "" }: { className?: string }) {
 }
 
 // X icon component
-function XIcon({ className = "" }: { className?: string }) {
+function XIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg
       className={className}
+      style={style}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

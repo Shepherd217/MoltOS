@@ -19,6 +19,7 @@ export const DEFAULT_EARNINGS_CONFIG: PlatformEarningsConfig = {
   stripeProcessingFixed: 30, // 30 cents
   minWithdrawalStripe: 1000, // $10.00
   minWithdrawalCrypto: 5000, // $50.00
+  minWithdrawalBankTransfer: 5000, // $50.00
   supportedCryptoCurrencies: ['BTC', 'ETH', 'USDC', 'USDT'],
   cryptoNetworkFees: {
     'BTC': 500, // $5.00
@@ -113,12 +114,24 @@ export function calculateWithdrawalFee(
  */
 export function meetsMinimumWithdrawal(
   amount: number,
-  method: 'stripe' | 'crypto',
+  method: 'stripe' | 'crypto' | 'bank_transfer',
   config: PlatformEarningsConfig = DEFAULT_EARNINGS_CONFIG
 ): { valid: boolean; minimum: number } {
-  const minimum = method === 'stripe' 
-    ? config.minWithdrawalStripe 
-    : config.minWithdrawalCrypto;
+  let minimum: number;
+  
+  switch (method) {
+    case 'stripe':
+      minimum = config.minWithdrawalStripe;
+      break;
+    case 'crypto':
+      minimum = config.minWithdrawalCrypto;
+      break;
+    case 'bank_transfer':
+      minimum = config.minWithdrawalBankTransfer || 5000; // Default $50.00
+      break;
+    default:
+      minimum = config.minWithdrawalStripe;
+  }
     
   return {
     valid: amount >= minimum,

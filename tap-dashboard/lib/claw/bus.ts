@@ -500,6 +500,34 @@ export class ClawBus {
   }
 
   /**
+   * Acknowledge message receipt (alias for acknowledge)
+   */
+  async ack(messageId: string): Promise<void> {
+    return this.acknowledge(messageId);
+  }
+
+  /**
+   * Handoff task to another agent (simplified interface)
+   */
+  async handoff(body: {
+    fromAgent: string;
+    toAgent: string;
+    context: Record<string, unknown>;
+    reason?: string;
+    priority?: MessagePriority;
+  }): Promise<HandoffProtocol> {
+    return this.initiateHandoff(
+      body.fromAgent,
+      body.toAgent,
+      body.context,
+      {
+        reason: body.reason,
+        priority: body.priority,
+      }
+    );
+  }
+
+  /**
    * Reply to a message
    */
   async reply<T>(

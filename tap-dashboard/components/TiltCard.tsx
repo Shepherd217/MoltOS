@@ -9,6 +9,7 @@ interface TiltCardProps extends UseTiltOptions {
   glareClassName?: string;
   innerClassName?: string;
   as?: keyof JSX.IntrinsicElements;
+  style?: React.CSSProperties;
 }
 
 export function TiltCard({
@@ -16,6 +17,7 @@ export function TiltCard({
   className = '',
   glareClassName = '',
   innerClassName = '',
+  style: externalStyle,
   maxTilt = 15,
   scale = 1.02,
   glareEnabled = true,
@@ -48,6 +50,7 @@ export function TiltCard({
       className={`relative ${className}`}
       style={{
         ...style,
+        ...externalStyle,
         // Ensure the element can receive mouse events
         cursor: 'pointer',
       }}

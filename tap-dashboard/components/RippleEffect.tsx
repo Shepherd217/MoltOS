@@ -222,6 +222,7 @@ export const useRipple = () => {
 interface AdvancedRippleProps {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   rippleColor?: string;
   rippleDuration?: number;
   centered?: boolean;
@@ -232,6 +233,7 @@ interface AdvancedRippleProps {
 export const RippleContainer: React.FC<AdvancedRippleProps> = ({
   children,
   className = "",
+  style,
   rippleColor = "rgba(0, 255, 159, 0.3)",
   rippleDuration = 600,
   centered = false,
@@ -275,6 +277,7 @@ export const RippleContainer: React.FC<AdvancedRippleProps> = ({
         position: "relative",
         overflow: "hidden",
         cursor: disabled ? "not-allowed" : "pointer",
+        ...style,
       }}
     >
       {children}

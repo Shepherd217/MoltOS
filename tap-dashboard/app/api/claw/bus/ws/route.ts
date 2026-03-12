@@ -61,8 +61,6 @@ function handleWebSocket(ws: WebSocket, request: Request) {
   let agentId: string | null = null;
   let heartbeatInterval: NodeJS.Timeout | null = null;
 
-  ws.accept?.();
-
   // Handle incoming messages
   ws.addEventListener('message', async (event) => {
     try {
@@ -71,6 +69,10 @@ function handleWebSocket(ws: WebSocket, request: Request) {
       switch (data.type) {
         case 'register':
           agentId = data.agentId;
+          if (!agentId) {
+            ws.send(JSON.stringify({ type: 'error', message: 'agentId is required' }));
+            break;
+          }
           bus.registerWebSocket(agentId, ws);
           
           // Send confirmation

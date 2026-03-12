@@ -182,7 +182,6 @@ async function handleRegister(body: any) {
     capabilities: capabilities || [],
     metadata: metadata || {},
     status: 'online',
-    lastSeen: new Date(),
   });
 
   return NextResponse.json({

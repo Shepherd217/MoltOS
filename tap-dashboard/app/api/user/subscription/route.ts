@@ -152,13 +152,14 @@ export async function POST(request: NextRequest) {
     // 4. Update Stripe subscription
     
     // For mock, we just return success
+    const tierKey = tier as SubscriptionTier;
     return NextResponse.json({
       success: true,
       data: {
-        message: `Subscription updated to ${TIER_CONFIG[tier].name}`,
+        message: `Subscription updated to ${TIER_CONFIG[tierKey].name}`,
         tier,
-        tierName: TIER_CONFIG[tier].name,
-        price: TIER_CONFIG[tier].price,
+        tierName: TIER_CONFIG[tierKey].name,
+        price: TIER_CONFIG[tierKey].price,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       },
     });

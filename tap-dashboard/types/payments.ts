@@ -551,3 +551,84 @@ export interface PaymentWebhookPayload {
     /** Timestamp */
     timestamp: Date;
 }
+
+/**
+ * Capture payment request
+ */
+export interface CapturePaymentRequest {
+  paymentIntentId: string;
+  amount?: number;
+}
+
+
+/**
+ * Create payment intent request
+ */
+export interface CreatePaymentIntentRequest {
+  amount: number;
+  currency?: string;
+  customerId?: string;
+  metadata?: Record<string, string>;
+  taskId?: string;
+  agentId?: string;
+  description?: string;
+  escrowEnabled?: boolean;
+  platformFeePercent?: number;
+}
+
+
+/**
+ * Refund payment request
+ */
+export interface RefundPaymentRequest {
+  paymentIntentId: string;
+  amount?: number;
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer' | 'expired_uncaptured_charge';
+}
+
+
+/**
+ * Webhook event type
+ */
+export type WebhookEventType = 
+  | 'payment_intent.created'
+  | 'payment_intent.succeeded'
+  | 'payment_intent.payment_failed'
+  | 'payment_intent.canceled'
+  | 'payment_intent.amount_capturable_updated'
+  | 'payment_intent.requires_action'
+  | 'charge.succeeded'
+  | 'charge.failed'
+  | 'charge.dispute.created'
+  | 'charge.dispute.closed'
+  | 'charge.refunded'
+  | 'invoice.payment_succeeded'
+  | 'invoice.payment_failed'
+  | 'invoice.created'
+  | 'customer.subscription.created'
+  | 'customer.subscription.updated'
+  | 'customer.subscription.deleted'
+  | 'customer.created'
+  | 'customer.updated'
+  | 'customer.deleted'
+  | 'transfer.failed'
+  | 'transfer.paid'
+  | 'account.updated'
+  | 'account.application.authorized'
+  | 'account.application.deauthorized'
+  | 'payout.created'
+  | 'payout.paid'
+  | 'payout.failed'
+  | 'payout.canceled';
+
+/**
+ * Webhook event object
+ */
+export interface WebhookEvent {
+  id: string;
+  type: WebhookEventType;
+  created: number;
+  data: {
+    object: Record<string, unknown>;
+  };
+}

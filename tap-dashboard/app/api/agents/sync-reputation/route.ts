@@ -135,7 +135,7 @@ function validateMetrics(metrics: Partial<AgentMetrics>, prefix = ''): { valid: 
     errors.push(`${prefix}tasksAssigned must be a non-negative integer`);
   }
 
-  if (metrics.tasksCompleted > metrics.tasksAssigned!) {
+  if (metrics.tasksCompleted! > metrics.tasksAssigned!) {
     errors.push(`${prefix}tasksCompleted cannot exceed tasksAssigned`);
   }
 
@@ -147,7 +147,7 @@ function validateMetrics(metrics: Partial<AgentMetrics>, prefix = ''): { valid: 
     errors.push(`${prefix}totalActions must be a non-negative integer`);
   }
 
-  if (metrics.errors > metrics.totalActions!) {
+  if (metrics.errors! > metrics.totalActions!) {
     errors.push(`${prefix}errors cannot exceed totalActions`);
   }
 
