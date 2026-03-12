@@ -204,6 +204,14 @@
       "static/chunks/main-app-1ebb1c3f8343a6e2.js",
       "static/chunks/app/arbitra/page-d9c1d241ce37595f.js"
     ],
+    "/dashboard/[agent_id]/page": [
+      "static/chunks/webpack-8179614763559006.js",
+      "static/chunks/4bd1b696-a7bcd2c233700cf5.js",
+      "static/chunks/1517-64b3cf78785a50a5.js",
+      "static/chunks/main-app-1ebb1c3f8343a6e2.js",
+      "static/chunks/9124-1c4a9590e3aaedc1.js",
+      "static/chunks/app/dashboard/[agent_id]/page-753e840d040df557.js"
+    ],
     "/dashboard/page": [
       "static/chunks/webpack-8179614763559006.js",
       "static/chunks/4bd1b696-a7bcd2c233700cf5.js",
@@ -227,14 +235,6 @@
       "static/chunks/9124-1c4a9590e3aaedc1.js",
       "static/chunks/8173-063c766fd3e31a84.js",
       "static/chunks/app/how-it-works/page-21b13e21c0060094.js"
-    ],
-    "/dashboard/[agent_id]/page": [
-      "static/chunks/webpack-8179614763559006.js",
-      "static/chunks/4bd1b696-a7bcd2c233700cf5.js",
-      "static/chunks/1517-64b3cf78785a50a5.js",
-      "static/chunks/main-app-1ebb1c3f8343a6e2.js",
-      "static/chunks/9124-1c4a9590e3aaedc1.js",
-      "static/chunks/app/dashboard/[agent_id]/page-753e840d040df557.js"
     ],
     "/join/page": [
       "static/chunks/webpack-8179614763559006.js",
