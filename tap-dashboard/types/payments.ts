@@ -583,7 +583,7 @@ export interface CreatePaymentIntentRequest {
 export interface RefundPaymentRequest {
   paymentIntentId: string;
   amount?: number;
-  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer' | 'expired_uncaptured_charge';
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer';
 }
 
 
@@ -642,6 +642,7 @@ export interface CreatePaymentIntentResponse {
   paymentIntentId: string;
   amount: number;
   currency: string;
+  status: string;
 }
 
 
@@ -649,9 +650,11 @@ export interface CreatePaymentIntentResponse {
  * Capture payment response
  */
 export interface CapturePaymentResponse {
+  success?: boolean;
   paymentIntentId: string;
   status: string;
-  amount: number;
+  amount?: number;
+  amountCaptured?: number;
 }
 
 
@@ -659,9 +662,11 @@ export interface CapturePaymentResponse {
  * Refund payment response
  */
 export interface RefundPaymentResponse {
+  success?: boolean;
   refundId: string;
-  paymentIntentId: string;
-  amount: number;
+  paymentIntentId?: string;
+  amount?: number;
+  amountRefunded?: number;
   status: string;
 }
 
@@ -682,8 +687,16 @@ export interface ConnectedAccountRequest {
  */
 export interface ConnectedAccountResponse {
   accountId: string;
-  status: string;
+  status?: string;
   onboardingUrl?: string;
+  requirements?: {
+    currentlyDue: string[];
+    eventuallyDue: string[];
+    pastDue: string[];
+    pendingVerification: string[];
+  };
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
 }
 
 /**
@@ -692,7 +705,9 @@ export interface ConnectedAccountResponse {
 export interface TransferRequest {
   amount: number;
   currency?: string;
-  destination: string;
+  destination?: string;
+  destinationAccountId?: string;
+  paymentIntentId?: string;
   description?: string;
 }
 
