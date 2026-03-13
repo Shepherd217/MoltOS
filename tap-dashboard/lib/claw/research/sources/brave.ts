@@ -57,7 +57,7 @@ export class BraveSearchAdapter implements SourceAdapter {
       }
 
       // Filter by domain if specified
-      if (options.domains?.length > 0 && !options.domains.some(d => result.url.includes(d))) {
+      if (options.domains && options.domains.length > 0 && !options.domains.some(d => result.url.includes(d))) {
         continue;
       }
 

@@ -693,7 +693,11 @@ export class MultiChainService {
       maxFeePerGas: options?.maxFeePerGas,
     });
 
-    return await tx.wait(CHAIN_CONFIGS[chainId].confirmations);
+    const receipt = await tx.wait(CHAIN_CONFIGS[chainId].confirmations);
+    if (!receipt) {
+      throw new Error('Transaction failed - no receipt');
+    }
+    return receipt;
   }
 
   /**

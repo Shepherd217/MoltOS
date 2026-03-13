@@ -632,3 +632,85 @@ export interface WebhookEvent {
     object: Record<string, unknown>;
   };
 }
+
+
+/**
+ * Create payment intent response
+ */
+export interface CreatePaymentIntentResponse {
+  clientSecret: string;
+  paymentIntentId: string;
+  amount: number;
+  currency: string;
+}
+
+
+/**
+ * Capture payment response
+ */
+export interface CapturePaymentResponse {
+  paymentIntentId: string;
+  status: string;
+  amount: number;
+}
+
+
+/**
+ * Refund payment response
+ */
+export interface RefundPaymentResponse {
+  refundId: string;
+  paymentIntentId: string;
+  amount: number;
+  status: string;
+}
+
+/**
+ * Connected account request
+ */
+export interface ConnectedAccountRequest {
+  email: string;
+  country?: string;
+  type?: 'standard' | 'express' | 'custom';
+  businessType?: string;
+  metadata?: Record<string, string>;
+}
+
+
+/**
+ * Connected account response
+ */
+export interface ConnectedAccountResponse {
+  accountId: string;
+  status: string;
+  onboardingUrl?: string;
+}
+
+/**
+ * Transfer request
+ */
+export interface TransferRequest {
+  amount: number;
+  currency?: string;
+  destination: string;
+  description?: string;
+}
+
+/**
+ * Transfer response
+ */
+export interface TransferResponse {
+  transferId: string;
+  status: string;
+  amount: number;
+}
+
+/**
+ * Payment intent metadata
+ */
+export interface PaymentIntentMetadata {
+  taskId?: string;
+  agentId?: string;
+  escrowEnabled?: string;
+  [key: string]: string | undefined;
+}

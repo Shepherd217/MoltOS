@@ -222,7 +222,7 @@ export class RssAdapter implements SourceAdapter {
     const link = this.extractTag(item, 'link') || '';
     const description = this.extractTag(item, 'description') || this.extractTag(item, 'content:encoded') || '';
     const pubDate = this.extractTag(item, 'pubDate');
-    const author = this.extractTag(item, 'author') || this.extractTag(item, 'dc:creator');
+    const author = this.extractTag(item, 'author') || this.extractTag(item, 'dc:creator') || undefined;
 
     return {
       type: 'rss',

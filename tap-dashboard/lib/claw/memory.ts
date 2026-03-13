@@ -164,6 +164,7 @@ const DEFAULT_CONFIG: Partial<ClawMemoryConfig> = {
  * Interface for embedding providers
  */
 export interface EmbeddingProvider {
+  initialize?(): Promise<void>;
   embed(text: string): Promise<number[]>;
   embedBatch(texts: string[]): Promise<number[][]>;
 }
@@ -295,7 +296,7 @@ export class ClawMemory {
    */
   async initialize(): Promise<void> {
     try {
-      await this.embeddingProvider.initialize();
+      await this.embeddingProvider.initialize?.();
       console.log('[ClawMemory] Initialized successfully');
     } catch (error) {
       console.warn('[ClawMemory] Using fallback embedding (no vectors)');

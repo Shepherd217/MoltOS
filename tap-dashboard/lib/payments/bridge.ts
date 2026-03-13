@@ -446,6 +446,10 @@ export class BridgeService {
 
     const receipt = await tx.wait();
 
+    if (!receipt) {
+      throw new Error('Transaction failed - no receipt');
+    }
+
     return {
       txHash: receipt.hash,
       status: 'PENDING',
@@ -558,9 +562,9 @@ export class BridgeService {
         routes.push({
           type: 'Li.Fi',
           estimate: {
-            estimatedTime: `${bestRoute.steps.reduce((acc: number, s: any) => acc + (s.estimate?.executionDuration || 0), 0)} seconds`,
-            fees: bestRoute.steps[0]?.estimate?.gasCosts || [],
-            provider: bestRoute.steps[0]?.tool,
+            estimatedTime: `${(bestRoute.steps || []).reduce((acc: number, s: any) => acc + (s.estimate?.executionDuration || 0), 0)} seconds`,
+            fees: bestRoute.steps?.[0]?.estimate?.gasCosts || [],
+            provider: bestRoute.steps?.[0]?.tool,
           },
         });
       }
@@ -624,6 +628,7 @@ export interface LiFiQuote {
   id: string;
   type: string;
   tool: string;
+  steps?: any[];
   action: {
     fromChainId: number;
     toChainId: number;

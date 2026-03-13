@@ -25,7 +25,7 @@ import {
 
 // Initialize Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
+  apiVersion: '2024-04-10',
   typescript: true,
 });
 
@@ -41,7 +41,7 @@ export class PaymentError extends Error {
   constructor(
     message: string,
     public code: string,
-    public stripeError?: Stripe.StripeError
+    public stripeError?: Stripe.StripeRawError
   ) {
     super(message);
     this.name = 'PaymentError';
@@ -98,7 +98,7 @@ export async function createPaymentIntent(
     // Create payment intent
     const paymentIntentData: Stripe.PaymentIntentCreateParams = {
       amount,
-      currency: currency.toLowerCase(),
+      currency: currency!.toLowerCase(),
       metadata: paymentMetadata as Record<string, string>,
       description: description || `Payment for task ${taskId}`,
       automatic_payment_methods: {

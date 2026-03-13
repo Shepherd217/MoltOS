@@ -74,7 +74,7 @@ export function useScrollAnimation(options?: {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: options?.offset || ["start end", "end start"],
+    offset: (options?.offset || ["start end", "end start"]) as [any, any],
   });
 
   const springConfig = {

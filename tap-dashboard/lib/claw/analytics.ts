@@ -424,7 +424,7 @@ export class AnalyticsService {
 
       const { error } = await this.supabase
         .from('analytics_events')
-        .insert(records);
+        .insert(records as any);
 
       if (error) {
         console.error('[Analytics] Flush error:', error);
@@ -499,28 +499,29 @@ export class AnalyticsService {
       .in('event_type', ['task_completed', 'task_failed'])
       .gte('created_at', dayAgo.toISOString());
 
-    const completed = taskStats?.filter(e => e.event_type === 'task_completed').length || 0;
-    const failed = taskStats?.filter(e => e.event_type === 'task_failed').length || 0;
+    const completed = (taskStats as any)?.filter((e: any) => e.event_type === 'task_completed').length || 0;
+    const failed = (taskStats as any)?.filter((e: any) => e.event_type === 'task_failed').length || 0;
     const successRate = completed + failed > 0 ? (completed / (completed + failed)) * 100 : 0;
 
+    const data = dashboardData as any;
     return {
       agents: {
-        total: dashboardData?.agents?.total || 0,
-        active24h: dashboardData?.agents?.active_24h || 0,
-        active7d: dashboardData?.agents?.active_7d || 0,
-        new24h: dashboardData?.agents?.new_24h || 0,
+        total: data?.agents?.total || 0,
+        active24h: data?.agents?.active_24h || 0,
+        active7d: data?.agents?.active_7d || 0,
+        new24h: data?.agents?.new_24h || 0,
       },
       tasks: {
-        completed24h: dashboardData?.tasks?.completed_24h || 0,
-        completed7d: dashboardData?.tasks?.completed_7d || 0,
-        completed30d: dashboardData?.tasks?.completed_30d || 0,
-        failed24h: dashboardData?.tasks?.failed_24h || 0,
+        completed24h: data?.tasks?.completed_24h || 0,
+        completed7d: data?.tasks?.completed_7d || 0,
+        completed30d: data?.tasks?.completed_30d || 0,
+        failed24h: data?.tasks?.failed_24h || 0,
         successRate24h: Math.round(successRate * 100) / 100,
       },
       payments: {
-        volume24h: dashboardData?.payments?.volume_24h || 0,
+        volume24h: data?.payments?.volume_24h || 0,
         volume7d: 0, // Will be fetched separately if needed
-        count24h: dashboardData?.payments?.count_24h || 0,
+        count24h: data?.payments?.count_24h || 0,
         averageTransaction24h: 0, // Calculated below
       },
       reputation: {
@@ -544,10 +545,10 @@ export class AnalyticsService {
       this.supabase.from('analytics_reputation_distribution').select('*'),
     ]);
 
-    const tasksCompleted = recentEvents?.filter(e => e.event_type === 'task_completed').length || 0;
-    const tasksFailed = recentEvents?.filter(e => e.event_type === 'task_failed').length || 0;
-    const payments = recentEvents?.filter(e => e.event_type === 'payment_received') || [];
-    const paymentVolume = payments.reduce((sum, p) => sum + (p.metric_value || 0), 0);
+    const tasksCompleted = (recentEvents as any)?.filter((e: any) => e.event_type === 'task_completed').length || 0;
+    const tasksFailed = (recentEvents as any)?.filter((e: any) => e.event_type === 'task_failed').length || 0;
+    const payments = (recentEvents as any)?.filter((e: any) => e.event_type === 'payment_received') || [];
+    const paymentVolume = payments.reduce((sum: number, p: any) => sum + (p.metric_value || 0), 0);
 
     return {
       agents: {
@@ -583,7 +584,7 @@ export class AnalyticsService {
    */
   async getTopAgents(limit: number = 20): Promise<TopAgent[]> {
     const { data, error } = await this.supabase
-      .rpc('get_agent_leaderboard', { limit_count: limit });
+      .rpc('get_agent_leaderboard', { limit_count: limit } as any);
 
     if (error) {
       console.error('[Analytics] Top agents query error:', error);
@@ -597,7 +598,7 @@ export class AnalyticsService {
 
       if (agentsError) throw agentsError;
 
-      return (agents || []).map(a => ({
+      return (agents || []).map((a: any) => ({
         agentHash: a.agent_hash,
         tasksCompleted: a.tasks_completed,
         successRate: a.success_rate,
@@ -608,7 +609,7 @@ export class AnalyticsService {
       }));
     }
 
-    return (data || []).map(a => ({
+    return ((data as any) || []).map((a: any) => ({
       agentHash: a.agent_hash,
       tasksCompleted: a.tasks_completed,
       successRate: a.success_rate,
@@ -633,7 +634,7 @@ export class AnalyticsService {
       return [];
     }
 
-    return (data || []).map(item => ({
+    return ((data as any) || []).map((item: any) => ({
       id: item.id,
       eventType: item.event_type,
       agentHash: item.agent_hash,
@@ -659,7 +660,7 @@ export class AnalyticsService {
       return [];
     }
 
-    return (data || []).map(t => ({
+    return ((data as any) || []).map((t: any) => ({
       date: t.date,
       tasksCompleted: t.tasks_completed || 0,
       tasksFailed: t.tasks_failed || 0,
@@ -686,7 +687,7 @@ export class AnalyticsService {
       return [];
     }
 
-    return (data || []).map(p => ({
+    return ((data as any) || []).map((p: any) => ({
       hourOfDay: p.hour_of_day,
       dayOfWeek: p.day_of_week,
       eventCount: p.event_count,

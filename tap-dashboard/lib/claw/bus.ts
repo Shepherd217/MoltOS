@@ -104,6 +104,7 @@ export interface MessageQuery {
   since?: Date;
   until?: Date;
   handoffId?: string;
+  replyTo?: string;
   limit?: number;
 }
 

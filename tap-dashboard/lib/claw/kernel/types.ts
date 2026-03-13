@@ -374,3 +374,38 @@ export function validateSpawnConfig(config: SpawnRequest): void {
     throw new KernelError('networkRate must be non-negative', 'INVALID_CONFIG');
   }
 }
+
+
+// ============================================================================
+// Missing Types (Added for compatibility)
+// ============================================================================
+
+/** Process configuration for spawning */
+export interface ProcessConfig {
+  agentId: string;
+  name: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cpu?: number;
+  memory?: number;
+  networkRate?: number;
+  workingDirectory?: string;
+}
+
+/** Process information summary */
+export interface ProcessInfo {
+  id: string;
+  agentId?: string;
+  name: string;
+  status: string;
+  pid?: number;
+  cpu?: number;
+  memory?: number;
+  uptime?: number;
+  restartCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  lastHeartbeat?: string;
+  config?: ProcessConfig;
+}

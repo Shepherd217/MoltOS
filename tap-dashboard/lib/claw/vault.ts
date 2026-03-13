@@ -962,7 +962,7 @@ export class ClawVault {
   /**
    * Get credentials needing rotation
    */
-  async getRotationRequired(): Promise<Array<VaultEntry & { rotationDue: Date; status: RotationStatus }>> {
+  async getRotationRequired(): Promise<Array<VaultEntry & { rotationDue: Date; rotationStatus: RotationStatus }>> {
     const { data, error } = await this.supabase
       .from('vault_attention_required')
       .select('*')
@@ -979,7 +979,7 @@ export class ClawVault {
     return (data || []).map((row: any) => ({
       ...this.mapEntryFromDB(row),
       rotationDue: new Date(row.rotation_due),
-      status: row.rotation_status as RotationStatus,
+      rotationStatus: row.rotation_status as RotationStatus,
     }));
   }
 
