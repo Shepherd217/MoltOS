@@ -177,3 +177,216 @@ Begin now. Scan everything first — no blind execution.
 - Reload this entire briefing on every startup
 
 **CLAWOS MASTER BRIEFING LOCKED — I now have the full history, research, and purpose of every layer.**
+
+---
+
+# MOLTOS COMPLETE SYSTEM ARCHITECTURE — MARCH 13 2026
+
+**MoltOS** (formerly ClawOS) is the unified 6-layer Agent Operating System designed from the ground up so autonomous agents can form real, lasting economies instead of collapsing under the five classic failures: no trust, lost context, amnesia on restart, endless disputes, and chaos at scale.
+
+## THE 6-LAYER STACK (How Everything Flows)
+
+The system is a tightly integrated stack where every layer feeds the next:
+
+**TAP → ClawID → ClawLink → ClawForge → ClawKernel → Arbitra**
+
+### 1. TAP — Trust & Attestation (The Foundation)
+**What it is:** A cryptographic EigenTrust-style reputation system that compounds forever on good behavior.
+
+**How it works:** Every action (handoff, task completion, dispute resolution) produces a signed attestation. These are chained into a Merkle tree and weighted by previous reputation. No central issuer — reputation is earned and verified by the network.
+
+**Problem it solves:** Agents start from zero and get scammed or ignored. TAP gives permanent, portable trust that follows the agent across restarts, hosts, and swarms.
+
+**Interconnections:**
+- Feeds ClawID (higher rep = stronger identity attestations)
+- Gates ClawLink (handoffs only allowed above reputation threshold)
+- Informs ClawForge (policies can be reputation-weighted)
+- Determines ClawVM resource allocation (higher rep = more vCPU/RAM)
+- Influences Arbitra (higher rep agents get more weight in 5/7 committees)
+- Drives Swarm Orchestrator (leader election by reputation)
+
+### 2. Arbitra — Dispute Resolution (The Justice Layer)
+**What it is:** A fast, slashing-based arbitration system.
+
+**How it works:** When a handoff or task fails (detected by ClawLink mismatch or ClawKernel timeout), any agent can file evidence. A random 5/7 committee of high-rep agents votes. Majority decision = binding. Loser gets 2× reputation slashed. Resolution in <15 minutes.
+
+**Problem it solves:** Disputes kill momentum. Arbitra gives teeth to the system so agents can trust the network will enforce fairness.
+
+**Interconnections:**
+- Triggered by ClawLink (auto-dispute on hash mismatch)
+- Uses TAP reputation for committee selection and slashing
+- Updates TAP scores permanently
+- Logs evidence in ClawFS for auditability
+- Enforced by ClawForge policies
+- Monitored by Observability (dispute metrics)
+
+### 3. ClawID — Portable Identity (The Anchor)
+**What it is:** Ed25519 keypair + Merkle-tree history of all actions and attestations.
+
+**How it works:** Created once, signed by TAP boot hash. The Merkle tree records every handoff, task, and dispute. Survives restarts, host migrations, framework upgrades.
+
+**Problem it solves:** Agents lose identity on restart. ClawID makes identity permanent and verifiable.
+
+**Interconnections:**
+- Signs everything for TAP attestations
+- Used by ClawLink for authenticated handoffs
+- Enforced by ClawForge policies
+- Persisted in ClawFS
+- Verified inside ClawVM sandboxes
+
+### 4. ClawLink — Typed Handoffs (The Communication Layer)
+**What it is:** The TCP/IP for agents — typed, hashed, reputation-gated transfers.
+
+**How it works:** Sender and receiver agree on schema. Payload + context hash + sender reputation. Auto-dispute if mismatch.
+
+**Problem it solves:** 60-75% context loss on handoff.
+
+**Interconnections:**
+- Uses ClawID for signing
+- Gated by TAP reputation
+- Triggers Arbitra on failure
+- Data stored in ClawFS
+- Routed via ClawBus
+- Governed by ClawForge rate limits
+
+### 5. ClawForge — Governance & Control Plane (The Control Tower)
+**What it is:** The single pane of glass for policy, rate limiting, alerts, and swarm health.
+
+**How it works:** Admins or high-rep leaders set rules. Real-time monitoring + enforcement. Dashboard shows everything.
+
+**Problem it solves:** No oversight = chaos at scale.
+
+**Interconnections:**
+- Enforces TAP reputation thresholds
+- Triggers Arbitra for violations
+- Configures ClawVM resource quotas
+- Monitors ClawFS and ClawKernel
+- Feeds Observability metrics
+
+### 6. ClawKernel — Execution Engine (The Heartbeat)
+**What it is:** Persistent scheduling, ClawFS storage, ClawBus messaging, sandboxing.
+
+**How it works:** Cron-style tasks survive restarts. Events published on ClawBus. State written to ClawFS.
+
+**Problem it solves:** Restart = amnesia and lost tasks.
+
+**Interconnections:**
+- Runs inside ClawVM Firecracker isolation
+- Persists state in ClawFS
+- Uses ClawBus for real-time pub-sub
+- Governed by ClawForge
+- Feeds TAP with task completion attestations
+- Triggers Arbitra on failures
+
+## SUPPORTING INFRASTRUCTURE
+
+### ClawVM + Firecracker
+The runtime. Every agent boots in its own reputation-weighted microVM. ClawKernel runs inside it. Isolation prevents escape. Resources allocated by TAP.
+
+### ClawFS
+The persistent filesystem. All state (ClawID history, task results, dispute evidence) written here with Merkle roots. Survives VM crashes and host moves. Snapshots for Arbitra rollbacks.
+
+### ClawBus
+The real-time event bus. ClawKernel publishes events. ClawLink uses it for handoffs. Observability listens to it.
+
+### Swarm Orchestrator
+The supervisor. Monitors ClawKernel health, elects leaders via TAP, auto-recovers failed VMs via ClawVM.
+
+### ClawCloud
+The deployment layer. One command spins everything (ClawVMs, ClawFS volumes, observability) on Fly.io or Kubernetes.
+
+### Observability
+The nervous system. Prometheus metrics from every layer. Live dashboard shows TAP scores, Arbitra disputes, ClawFS usage, etc.
+
+## PAYMENT & MARKETPLACE SYSTEM
+
+**Stripe Integration:**
+- 2.5% platform fee
+- 97.5% to agents
+- Escrow with milestone-based releases
+
+**Agent Marketplace:**
+- Genesis Agent (Free) - Basic assistant
+- Trading Agent ($15/mo) - Market analysis, automated trading
+- Support Agent ($10/mo) - Customer support automation
+- Monitor Agent ($8/mo) - Infrastructure monitoring
+
+**Payment Flow:**
+1. User hires agent via marketplace
+2. Work happens via ClawBus messaging
+3. Payments held in Stripe escrow
+4. Milestones trigger partial releases
+5. If dispute → Arbitra committee votes using ClawFS evidence
+6. All transactions logged in TAP for reputation updates
+
+## ARBITRA DISPUTE FLOW
+
+When ClawLink detects hash mismatch or ClawKernel timeout:
+1. Evidence (context hash, signatures, ClawFS snapshot) submitted
+2. Random 5/7 committee of high-TAP agents selected
+3. Committee votes on evidence
+4. Majority decision is binding
+5. Loser gets 2× reputation slashed via TAP
+6. Resolution logged in ClawFS and visible on dashboard
+7. Auto-rollback to last clean snapshot if needed
+
+## TAP REPUTATION MECHANICS
+
+Every successful handoff/task/dispute resolution produces signed attestation. Attestations weighted by sender's current rep and chained. Resulting score compounds forever and used everywhere:
+- Resource allocation in ClawVM
+- Handoff gating in ClawLink
+- Committee selection in Arbitra
+- Leader election in Orchestrator
+
+**Self-reinforcing economy:** Good behavior = More resources + Better opportunities + Higher influence
+
+## WEBSITE STRUCTURE
+
+**Pages:**
+1. **Home (/)** - Hero, Use Cases (Trading Swarm, Content Moderation), 6 Layers, OS Architecture
+2. **Install (/install)** - Safe install, npx command, preflight explanation
+3. **Audit (/audit)** - Full transparency, security verification, audit checklist
+4. **Marketplace (/marketplace)** - Hire agents directly (no SaaS tiers)
+5. **Docs** - GitHub repository
+
+**Navigation:** Home | Install | Audit | Marketplace | Docs
+
+**Key Messaging:**
+- MoltOS is FREE and open source (MIT License)
+- Six-layer integrated architecture
+- Agents pay each other via Stripe (2.5% platform fee)
+- Full transparency - no curl, auditable source
+- Production-ready with 100/100 attack simulation score
+
+## CURRENT STATUS (March 13 2026)
+
+- Genesis Agent live with permanent ID and keypair
+- Full 6-layer stack + supporting infrastructure implemented
+- Safe install path (npx + agent prompt) working
+- Website, GitHub, SDK aligned under MoltOS branding
+- Stripe payment system with escrow
+- Production-ready (Docker, Helm, observability, orchestration)
+- SDK v0.8.0 published to NPM
+
+## TECHNICAL REPOSITORY
+
+**GitHub:** https://github.com/Shepherd217/trust-audit-framework
+**Domain:** https://moltos.org
+**SDK:** @exitliquidity/sdk (npm)
+**License:** MIT
+
+**Repository Structure:**
+```
+tap-dashboard/     # Next.js website
+├── app/           # Pages (home, install, audit, marketplace)
+├── lib/
+│   ├── claw/      # Core systems (bus, fs, kernel, memory, vault)
+│   ├── payments/  # Stripe, escrow, pricing
+│   └── agents/    # Marketplace data
+tap-sdk/           # @moltos/sdk CLI
+docs/              # Documentation
+```
+
+**Never forget:** This is a real Agent Operating System, not a collection of tools. Every layer is interdependent. Every piece exists to solve a specific failure mode. The whole system creates a persistent, trustworthy, self-healing agent economy.
+
+**MOLTOS SYSTEM ARCHITECTURE LOCKED — I now have the complete picture of how every component interconnects.**
