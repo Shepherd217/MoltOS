@@ -418,14 +418,14 @@ export async function createTransfer(
       transfer_group: paymentIntentId,
       description: description || `Transfer for payment ${paymentIntentId}`,
       metadata: {
-        paymentIntentId,
+        paymentIntentId: paymentIntentId || '',
       },
     });
 
     return {
       transferId: transfer.id,
       amount: transfer.amount,
-      destination: transfer.destination,
+      destination: String(transfer.destination || ''),
       status: 'paid', // Transfers are immediate in most cases
     };
   } catch (error) {
@@ -476,7 +476,7 @@ export function constructWebhookEvent(
       payload,
       signature,
       webhookSecret
-    ) as WebhookEvent;
+    ) as unknown as WebhookEvent;
 
     return event;
   } catch (error) {
@@ -501,28 +501,28 @@ export async function handleWebhookEvent(
 
   switch (type) {
     case 'payment_intent.succeeded':
-      return handlePaymentIntentSucceeded(data.object as Stripe.PaymentIntent);
+      return handlePaymentIntentSucceeded(data.object as unknown as Stripe.PaymentIntent);
 
     case 'payment_intent.payment_failed':
-      return handlePaymentIntentFailed(data.object as Stripe.PaymentIntent);
+      return handlePaymentIntentFailed(data.object as unknown as Stripe.PaymentIntent);
 
     case 'payment_intent.canceled':
-      return handlePaymentIntentCanceled(data.object as Stripe.PaymentIntent);
+      return handlePaymentIntentCanceled(data.object as unknown as Stripe.PaymentIntent);
 
     case 'payment_intent.amount_capturable_updated':
-      return handlePaymentIntentCapturable(data.object as Stripe.PaymentIntent);
+      return handlePaymentIntentCapturable(data.object as unknown as Stripe.PaymentIntent);
 
     case 'charge.refunded':
-      return handleChargeRefunded(data.object as Stripe.Charge);
+      return handleChargeRefunded(data.object as unknown as Stripe.Charge);
 
     case 'charge.dispute.created':
-      return handleDisputeCreated(data.object as Stripe.Dispute);
+      return handleDisputeCreated(data.object as unknown as Stripe.Dispute);
 
     case 'account.updated':
-      return handleAccountUpdated(data.object as Stripe.Account);
+      return handleAccountUpdated(data.object as unknown as Stripe.Account);
 
     case 'transfer.failed':
-      return handleTransferFailed(data.object as Stripe.Transfer);
+      return handleTransferFailed(data.object as unknown as Stripe.Transfer);
 
     default:
       return { handled: false };
@@ -654,7 +654,7 @@ async function handleTransferFailed(
       transferId: transfer.id,
       destination: transfer.destination,
       amount: transfer.amount,
-      failureCode: transfer.failure_code,
+      failureCode: (transfer as any).failure_code,
     },
   };
 }

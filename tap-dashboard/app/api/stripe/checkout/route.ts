@@ -7,8 +7,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
+
+// Lazy-load stripe client to avoid build-time errors
+let stripe: Stripe;
+function getStripe() {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not defined. Please set it in your environment variables.');
+    }
+    stripe = new Stripe(key, {
+      apiVersion: '2024-04-10',
+      typescript: true,
+    });
+  }
+  return stripe;
+}
 
 // Subscription tier configuration
 const SUBSCRIPTION_TIERS = {
@@ -80,7 +95,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Create or retrieve customer
     let customer: Stripe.Customer;
-    const existingCustomers = await stripe.customers.list({
+    const existingCustomers = await getStripe().customers.list({
       email,
       limit: 1,
     });
@@ -89,12 +104,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       customer = existingCustomers.data[0];
       // Update metadata if needed
       if (customer.metadata?.userId !== userId) {
-        customer = await stripe.customers.update(customer.id, {
+        customer = await getStripe().customers.update(customer.id, {
           metadata: { userId, tier },
         });
       }
     } else {
-      customer = await stripe.customers.create({
+      customer = await getStripe().customers.create({
         email,
         metadata: {
           userId,
@@ -137,7 +152,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       allow_promotion_codes: true,
     };
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    const session = await getStripe().checkout.sessions.create(sessionConfig);
 
     console.log(`[Stripe Checkout] Created session for tier: ${tierConfig.name}`, {
       sessionId: session.id,
@@ -192,7 +207,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    const session = await getStripe().checkout.sessions.retrieve(sessionId, {
       expand: ['subscription', 'customer'],
     });
 

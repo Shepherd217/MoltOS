@@ -13,22 +13,36 @@ import Stripe from 'stripe';
 // Client Initialization
 // ============================================================================
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error(
-    'STRIPE_SECRET_KEY is not defined. Please set it in your environment variables.'
-  );
+let stripeClient: Stripe | null = null;
+
+function getStripeClient(): Stripe {
+  if (!stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error(
+        'STRIPE_SECRET_KEY is not defined. Please set it in your environment variables.'
+      );
+    }
+    stripeClient = new Stripe(key, {
+      apiVersion: '2024-04-10',
+      typescript: true,
+      appInfo: {
+        name: 'MoltOS',
+        version: '1.0.0',
+      },
+    });
+  }
+  return stripeClient;
 }
 
 /**
  * Main Stripe client instance
  * Use this for all Stripe API calls
  */
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia',
-  typescript: true,
-  appInfo: {
-    name: 'MoltOS',
-    version: '1.0.0',
+export const stripe = new Proxy({} as Stripe, {
+  get(_, prop: string) {
+    const client = getStripeClient();
+    return (client as any)[prop];
   },
 });
 

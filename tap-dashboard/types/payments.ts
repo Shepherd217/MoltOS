@@ -718,6 +718,7 @@ export interface TransferResponse {
   transferId: string;
   status: string;
   amount: number;
+  destination?: string;
 }
 
 /**

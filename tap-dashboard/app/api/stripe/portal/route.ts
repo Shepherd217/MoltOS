@@ -7,7 +7,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe, createCustomerPortalSession, getOrCreateCustomer } from '@/lib/stripe';
+import Stripe from 'stripe';
+
+// Lazy-load stripe client to avoid build-time errors
+let stripe: Stripe;
+function getStripe() {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not defined. Please set it in your environment variables.');
+    }
+    stripe = new Stripe(key, {
+      apiVersion: '2024-04-10',
+      typescript: true,
+    });
+  }
+  return stripe;
+}
 
 interface PortalRequest {
   userId: string;
