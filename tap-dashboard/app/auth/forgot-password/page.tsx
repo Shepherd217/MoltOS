@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering - requires auth context
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
