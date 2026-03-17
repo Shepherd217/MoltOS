@@ -26,10 +26,24 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    
+    // Parse and validate status
+    const statusParam = searchParams.get('status');
+    let status: 'active' | 'all' | 'inactive' | undefined;
+    if (statusParam) {
+      if (!['active', 'all', 'inactive'].includes(statusParam)) {
+        return NextResponse.json(
+          { error: 'Invalid status. Must be active, all, or inactive' },
+          { status: 400 }
+        );
+      }
+      status = statusParam as 'active' | 'all' | 'inactive';
+    }
+    
     const filters = {
       owner: searchParams.get('owner') || undefined,
       tags: searchParams.get('tags')?.split(',') || undefined,
-      status: searchParams.get('status') || undefined,
+      status,
       limit: parseInt(searchParams.get('limit') || '20'),
       offset: parseInt(searchParams.get('offset') || '0')
     };
