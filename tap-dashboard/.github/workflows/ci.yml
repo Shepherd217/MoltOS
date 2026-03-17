@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: tap-dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./tap-dashboard
+        run: npm ci
+
+      - name: Type check
+        working-directory: ./tap-dashboard
+        run: npx tsc --noEmit
+
+      - name: Lint
+        working-directory: ./tap-dashboard
+        run: npm run lint --if-present
+
+      - name: Build
+        working-directory: ./tap-dashboard
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: |
+            tap-dashboard/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('tap-dashboard/package-lock.json') }}-${{ hashFiles('tap-dashboard/**/*.js', 'tap-dashboard/**/*.jsx', 'tap-dashboard/**/*.ts', 'tap-dashboard/**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('tap-dashboard/package-lock.json') }}-

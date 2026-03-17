@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/api/agent/arbitra/submit/route.ts
+// File: /root/.openclaw/workspace/tap-dashboard/app/api/agent/arbitra/submit/route.ts
 import * as entry from '../../../../../../../app/api/agent/arbitra/submit/route.js'
 import type { NextRequest } from 'next/server.js'
 

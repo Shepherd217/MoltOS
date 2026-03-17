@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/about/page.tsx
+// File: /root/.openclaw/workspace/tap-dashboard/app/about/page.tsx
 import * as entry from '../../../../app/about/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

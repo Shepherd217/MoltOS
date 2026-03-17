@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/arbitra/page.tsx
+// File: /root/.openclaw/workspace/tap-dashboard/app/arbitra/page.tsx
 import * as entry from '../../../../app/arbitra/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
