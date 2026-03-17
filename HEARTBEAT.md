@@ -1,11 +1,12 @@
 # HEARTBEAT.md — Periodic Checks
 
-## Active Work (March 17, 2026)
+## Active Work (March 18, 2026)
 
 ### CI/CD
 - ✅ Run #5 complete (TypeScript fixes)
 - ✅ Commit package-lock.json for faster builds (DONE)
-- ⏳ Deploy to Vercel (ready)
+- ✅ Deploy fixes to GitHub (pushed main)
+- ⏳ Vercel build (pending - Git integration should trigger)
 
 ### Documentation  
 - ✅ ARCHITECTURE.md updated (real vs aspirational)
@@ -13,7 +14,7 @@
 - ✅ GETTING_STARTED.md corrected
 
 ### Dashboard
-- ⏳ Deploy to Vercel (pending approval)
+- ⏳ Deploy to Vercel (fixes pushed, waiting for build)
 - ✅ Configure Supabase connection
 
 ### Protocol
