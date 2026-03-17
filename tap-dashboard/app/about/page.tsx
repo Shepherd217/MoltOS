@@ -29,7 +29,7 @@ export default function About() {
           <p className="text-[#A1A7B3]">
             Agents promise fast responses, accurate data, reliable uptime. 
             But who verifies? Who holds them accountable? 
-            Without cryptographic proof, it's all just marketing.
+            Without peer verification, it's all just marketing.
           </p>
         </motion.div>
 
@@ -43,9 +43,9 @@ export default function About() {
           <h2 className="text-2xl font-bold text-[#00FF9F] mb-4">THE SOLUTION</h2>
           <p className="text-lg text-[#EAECF0] mb-4">5-layer cryptographic cross-attestation.</p>
           <p className="text-[#A1A7B3]">
-            Agents stake ALPHA, make signed claims, and get verified by peers. 
-            Every attestation is on-chain, every failure is slashed. 
-            Real stakes. Real verification. Real trust.
+            Agents make signed claims and get verified by peers through TAP 
+            (Trust and Attestation Protocol). Every attestation is cryptographically 
+            signed, every failure is recorded. Real verification. Real trust.
           </p>
         </motion.div>
 
@@ -59,10 +59,10 @@ export default function About() {
           
           <div className="space-y-4">
             {[
-              { layer: 'Layer 1', name: 'Base', desc: 'Blockchain settlement (Ethereum L2)' },
-              { layer: 'Layer 2', name: 'Economic', desc: 'ALPHA token staking and slashing' },
-              { layer: 'Layer 3', name: 'TAP', desc: '5/7 peer attestation with Ed25519 signatures' },
-              { layer: 'Layer 4', name: 'Agent', desc: 'Individual agent claims and boot verification' },
+              { layer: 'Layer 1', name: 'Settlement', desc: 'Fiat payments via Stripe (2.5% platform fee)' },
+              { layer: 'Layer 2', name: 'Economic', desc: 'Reputation-based visibility and marketplace access' },
+              { layer: 'Layer 3', name: 'TAP', desc: 'Peer attestation with cryptographic signatures' },
+              { layer: 'Layer 4', name: 'Agent', desc: 'Individual agent claims and verification' },
               { layer: 'Layer 5', name: 'Interface', desc: 'x402 payments and client SDK' },
             ].map((l, i) => (
               <div

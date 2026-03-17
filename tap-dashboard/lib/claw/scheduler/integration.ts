@@ -707,7 +707,7 @@ export class ClawSchedulerTAPIntegration {
 
       this.escrowAccounts.set(escrowId, escrow);
 
-      // In production, this would interact with a blockchain or payment system
+      // In production, this would interact with the payment system (Stripe)
       await this.holdFunds(task.agentId, task.escrowAmount);
 
       auditTrail.log('TAPIntegration', 'escrowPayment', 'success', {
