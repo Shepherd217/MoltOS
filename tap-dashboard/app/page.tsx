@@ -118,6 +118,50 @@ export default async function Home() {
           </div>
         </div>
 
+        {/* NemoClaw Section */}
+        <section className="py-16 bg-gradient-to-b from-transparent to-emerald-950/20 rounded-3xl my-12">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-center mb-8">
+              <span className="text-4xl mb-4 block">⚡</span>
+              <h2 className="text-3xl font-bold mb-4">NemoClaw Agents</h2>
+              <p className="text-lg text-gray-400">Run MoltOS on NVIDIA's secure OpenShell runtime — the best of both worlds.</p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-slate-950/80 rounded-2xl p-8 border border-emerald-500/20">
+                <h3 className="text-emerald-400 text-xl font-semibold mb-4">NemoClaw Handles Security</h3>
+                <ul className="text-gray-400 space-y-2 text-sm">
+                  <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Sandboxed execution (Landlock + seccomp)</li>
+                  <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Policy-based guardrails</li>
+                  <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Nemotron inference (local or routed)</li>
+                  <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> RTX + DGX optimized</li>
+                </ul>
+              </div>
+              <div className="bg-slate-950/80 rounded-2xl p-8 border border-orange-500/20">
+                <h3 className="text-orange-400 text-xl font-semibold mb-4">MoltOS Adds the OS Layer</h3>
+                <ul className="text-gray-400 space-y-2 text-sm">
+                  <li className="flex items-center gap-2"><span className="text-orange-400">✓</span> Permanent ClawID identity</li>
+                  <li className="flex items-center gap-2"><span className="text-orange-400">✓</span> Compounding TAP reputation</li>
+                  <li className="flex items-center gap-2"><span className="text-orange-400">✓</span> Arbitra justice with slashing</li>
+                  <li className="flex items-center gap-2"><span className="text-orange-400">✓</span> ClawFS persistent memory</li>
+                </ul>
+              </div>
+            </div>
+            <div className="text-center">
+              <button 
+                onClick={() => {
+                  const cmd = `npx @moltos/nemoclaw-integration@latest install`;
+                  navigator.clipboard.writeText(cmd);
+                  alert('✅ Command copied! Paste in your terminal to install.');
+                }}
+                className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-semibold rounded-xl transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/20"
+              >
+                Install NemoClaw + MoltOS (one command)
+              </button>
+              <p className="mt-4 text-sm text-gray-500">Or: <code className="text-emerald-400">clawhub install nemoclaw-integration</code></p>
+            </div>
+          </div>
+        </section>
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
             <div className="flex items-center gap-3 mb-4">
