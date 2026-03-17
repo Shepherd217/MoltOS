@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * ClawScheduler Service
  * Core workflow orchestration engine for TAP
@@ -1300,7 +1298,7 @@ export async function transition(
   }
   
   const execution = mapRowToExecution(executionData as LocalExecutionRow);
-  const workflow = executionData.workflow as LocalWorkflowRow;
+  const workflow = (executionData as LocalExecutionRow & { workflow: LocalWorkflowRow }).workflow;
   
   // Find outgoing edges
   const outgoingEdges = workflow.edges.filter((e: WorkflowEdge) => e.from === fromNodeId);
@@ -1442,15 +1440,15 @@ function evaluateCondition(condition: string, result: TaskResult): boolean {
 async function markExecutionCompleted(executionId: string, output?: any): Promise<void> {
   const supabase = getSupabaseClient();
   
-  await supabase
-    .from('workflow_executions')
+  await (supabase
+    .from('workflow_executions') as any)
     .update({
       status: 'completed',
       output,
       completed_at: new Date().toISOString(),
       progress_percent: 100,
       current_node_id: null,
-    } as any)
+    })
     .eq('id', executionId);
   
   const completeEvent = createWorkflowEvent(executionId, 'execution_completed', undefined, {
@@ -1480,17 +1478,18 @@ export async function pauseExecution(executionId: string): Promise<void> {
     throw new Error(`Execution not found: ${executionId}`);
   }
   
-  if (executionData.status !== 'running') {
-    throw new Error(`Cannot pause execution with status: ${executionData.status}`);
+  const execData = executionData as { status: string };
+  if (execData.status !== 'running') {
+    throw new Error(`Cannot pause execution with status: ${execData.status}`);
   }
   
   // Update state to PAUSED
-  const { error: updateError } = await supabase
-    .from('workflow_executions')
+  const { error: updateError } = await (supabase
+    .from('workflow_executions') as any)
     .update({
       status: 'paused',
       updated_at: new Date().toISOString(),
-    } as any)
+    })
     .eq('id', executionId);
   
   if (updateError) {
@@ -1522,17 +1521,18 @@ export async function resumeExecution(executionId: string): Promise<void> {
     throw new Error(`Execution not found: ${executionId}`);
   }
   
-  if (executionData.status !== 'paused') {
-    throw new Error(`Cannot resume execution with status: ${executionData.status}`);
+  const execData = executionData as { status: string; current_node_id?: string };
+  if (execData.status !== 'paused') {
+    throw new Error(`Cannot resume execution with status: ${execData.status}`);
   }
   
   // Update state to RUNNING
-  const { error: updateError } = await supabase
-    .from('workflow_executions')
+  const { error: updateError } = await (supabase
+    .from('workflow_executions') as any)
     .update({
       status: 'running',
       updated_at: new Date().toISOString(),
-    } as any)
+    })
     .eq('id', executionId);
   
   if (updateError) {
@@ -1540,8 +1540,8 @@ export async function resumeExecution(executionId: string): Promise<void> {
   }
   
   // Log resume event
-  const resumeEvent = createWorkflowEvent(executionId, 'execution_resumed', executionData.current_node_id, {
-    resumedFrom: executionData.current_node_id,
+  const resumeEvent = createWorkflowEvent(executionId, 'execution_resumed', execData.current_node_id, {
+    resumedFrom: execData.current_node_id,
   });
   await logEvent(executionId, resumeEvent);
 }
@@ -1570,12 +1570,13 @@ export async function cancelExecution(
     throw new Error(`Execution not found: ${executionId}`);
   }
   
-  if (['completed', 'cancelled', 'failed'].includes(executionData.status)) {
-    throw new Error(`Cannot cancel execution with status: ${executionData.status}`);
+  const execData = executionData as { status: string; node_executions: Record<string, any>; payments: any[] };
+  if (['completed', 'cancelled', 'failed'].includes(execData.status)) {
+    throw new Error(`Cannot cancel execution with status: ${execData.status}`);
   }
   
   // Trigger compensation for completed nodes (Saga pattern)
-  const nodeExecutions = executionData.node_executions || {};
+  const nodeExecutions = execData.node_executions || {};
   const completedNodes = Object.entries(nodeExecutions)
     .filter(([_, ne]: [string, any]) => ne.status === 'completed')
     .map(([nodeId, _]) => nodeId);
@@ -1604,7 +1605,7 @@ export async function cancelExecution(
   }
   
   // Release allocated payments from escrow
-  const payments: PaymentRecord[] = executionData.payments || [];
+  const payments: PaymentRecord[] = execData.payments || [];
   for (const payment of payments) {
     if (payment.status === 'held') {
       try {
@@ -1616,13 +1617,13 @@ export async function cancelExecution(
   }
   
   // Update state to CANCELLED
-  const { error: updateError } = await supabase
-    .from('workflow_executions')
+  const { error: updateError } = await (supabase
+    .from('workflow_executions') as any)
     .update({
       status: 'cancelled',
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    } as any)
+    })
     .eq('id', executionId);
   
   if (updateError) {
@@ -1652,22 +1653,23 @@ async function compensateNode(executionId: string, nodeId: string): Promise<void
   
   if (!data) return;
   
-  const nodeExecution = data.node_executions?.[nodeId];
+  const execData = data as { node_executions: Record<string, any> };
+  const nodeExecution = execData.node_executions?.[nodeId];
   if (!nodeExecution?.compensationData) return;
   
   // TODO: Implement actual compensation logic
   // This would involve calling compensation handlers, rolling back state, etc.
   
   // Update node execution with compensation status
-  data.node_executions[nodeId] = {
+  execData.node_executions[nodeId] = {
     ...nodeExecution,
     compensated: true,
     compensatedAt: new Date().toISOString(),
   };
   
-  await supabase
-    .from('workflow_executions')
-    .update({ node_executions: data.node_executions } as any)
+  await (supabase
+    .from('workflow_executions') as any)
+    .update({ node_executions: execData.node_executions })
     .eq('id', executionId);
 }
 
@@ -1683,9 +1685,10 @@ async function releasePaymentFromEscrow(executionId: string, paymentId: string):
     .eq('id', executionId)
     .single();
   
-  if (!data?.payments) return;
+  if (!data || !data.payments) return;
   
-  const payments = data.payments.map((p: PaymentRecord) => {
+  const execData = data as { payments: PaymentRecord[] };
+  const payments = execData.payments.map((p: PaymentRecord) => {
     if (p.id === paymentId) {
       return {
         ...p,
@@ -1696,9 +1699,9 @@ async function releasePaymentFromEscrow(executionId: string, paymentId: string):
     return p;
   });
   
-  await supabase
-    .from('workflow_executions')
-    .update({ payments } as any)
+  await (supabase
+    .from('workflow_executions') as any)
+    .update({ payments })
     .eq('id', executionId);
   
   // Log payment rollback
@@ -1732,8 +1735,8 @@ export async function retryFailedNode(
     throw new Error(`Execution not found: ${executionId}`);
   }
   
-  const execution = mapRowToExecution(executionData);
-  const workflow = executionData.workflow;
+  const execution = mapRowToExecution(executionData as LocalExecutionRow);
+  const workflow = (executionData as LocalExecutionRow & { workflow: LocalWorkflowRow }).workflow;
   
   // Find node config
   const node = workflow.nodes.find((n: WorkflowNode) => n.id === nodeId);
@@ -1805,11 +1808,11 @@ export async function retryFailedNode(
   const newRetryCount = currentRetries + 1;
   execution.retryCount.set(nodeId, newRetryCount);
   
-  await supabase
-    .from('workflow_executions')
+  await (supabase
+    .from('workflow_executions') as any)
     .update({
       retry_count: Object.fromEntries(execution.retryCount),
-    } as any)
+    })
     .eq('id', executionId);
   
   // Log retry event
