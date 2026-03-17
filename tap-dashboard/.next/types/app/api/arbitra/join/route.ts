@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/api/arbitra/join/route.ts
+// File: /root/.openclaw/workspace/tap-dashboard/app/api/arbitra/join/route.ts
 import * as entry from '../../../../../../app/api/arbitra/join/route.js'
 import type { NextRequest } from 'next/server.js'
 

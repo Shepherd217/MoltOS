@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/api/payments/capture/route.ts
+// File: /root/.openclaw/workspace/tap-dashboard/app/api/payments/capture/route.ts
 import * as entry from '../../../../../../app/api/payments/capture/route.js'
 import type { NextRequest } from 'next/server.js'
 

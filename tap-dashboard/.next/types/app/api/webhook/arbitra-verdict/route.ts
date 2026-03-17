@@ -1,4 +1,4 @@
-// File: /tmp/sdk-verification/tap-dashboard/app/api/webhook/arbitra-verdict/route.ts
+// File: /root/.openclaw/workspace/tap-dashboard/app/api/webhook/arbitra-verdict/route.ts
 import * as entry from '../../../../../../app/api/webhook/arbitra-verdict/route.js'
 import type { NextRequest } from 'next/server.js'
 
