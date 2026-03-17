@@ -116,7 +116,7 @@ async function fetchAttestations(timeWindowDays: number = 0): Promise<Attestatio
     throw new Error(`Failed to fetch attestations: ${error.message}`);
   }
 
-  return data || [];
+  return (data as Attestation[]) || [];
 }
 
 /**
@@ -131,7 +131,7 @@ async function fetchAgents(): Promise<Agent[]> {
     throw new Error(`Failed to fetch agents: ${error.message}`);
   }
 
-  return data || [];
+  return (data as Agent[]) || [];
 }
 
 /**
@@ -519,9 +519,12 @@ export async function getTrustNetwork(
     return { nodes: [], edges: [] };
   }
 
+  // Type assertion for attestations
+  const typedAttestations = attestations as Array<{ agent_id: string; target_id: string; score: number }>;
+
   const nodeIds = new Set<string>();
   nodeIds.add(agentId);
-  attestations.forEach(a => {
+  typedAttestations.forEach(a => {
     nodeIds.add(a.agent_id);
     nodeIds.add(a.target_id);
   });
@@ -532,13 +535,16 @@ export async function getTrustNetwork(
     .select('claw_id, name, tap_score')
     .in('claw_id', Array.from(nodeIds));
 
-  const nodes = (agents || []).map(a => ({
+  // Type assertion for agents
+  const typedAgents = (agents || []) as Array<{ claw_id: string; name: string | null; tap_score: number }>;
+
+  const nodes = typedAgents.map(a => ({
     id: a.claw_id,
     name: a.name || a.claw_id.slice(0, 8),
     score: a.tap_score,
   }));
 
-  const edges = attestations.map(a => ({
+  const edges = typedAttestations.map(a => ({
     from: a.agent_id,
     to: a.target_id,
     weight: a.score / 100,  // Normalize to 0-1
