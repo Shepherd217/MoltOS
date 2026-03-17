@@ -6,8 +6,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
 export function getSupabaseClient() {
   if (typeof window !== 'undefined') {
@@ -25,7 +26,7 @@ export function getSupabaseClient() {
       );
     }
     
-    supabaseInstance = createClient(url, key, {
+    supabaseInstance = createClient<Database>(url, key, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -37,7 +38,7 @@ export function getSupabaseClient() {
 }
 
 // For backwards compatibility
-export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
   get(target, prop) {
     return getSupabaseClient()[prop as keyof typeof target];
   },
