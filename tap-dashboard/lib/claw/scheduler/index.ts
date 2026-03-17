@@ -628,7 +628,7 @@ export async function executeWorkflow(
 export async function getExecutionStatus(executionId: string): Promise<ExecutionStateSnapshot> {
   const supabase = getSupabaseClient();
   
-  const { data, error } = await supabase
+  const { data: rawData, error } = await supabase
     .from('workflow_executions')
     .select(`
       *,
@@ -637,12 +637,15 @@ export async function getExecutionStatus(executionId: string): Promise<Execution
     .eq('id', executionId)
     .single();
   
-  if (error || !data) {
+  if (error || !rawData) {
     throw new Error(`Execution not found: ${executionId}`);
   }
   
+  // Explicitly type to avoid narrowing issues
+  const data = rawData as ExecutionRow & { workflow: { name: string; nodes: any[] } | null };
+  
   const execution = mapRowToExecution(data);
-  const workflow = data.workflow as { name: string; nodes: any[] } | null;
+  const workflow = data.workflow;
   
   // Calculate time metrics
   const nowTime = now().getTime();
@@ -924,18 +927,21 @@ export async function executeNode(
   const supabase = getSupabaseClient();
   
   // Fetch execution and workflow
-  const { data: executionData, error: execError } = await supabase
+  const { data: rawData, error: execError } = await supabase
     .from('workflow_executions')
     .select('*, workflow:workflow_id(*)')
     .eq('id', executionId)
     .single();
   
-  if (execError || !executionData) {
+  if (execError || !rawData) {
     throw new Error(`Execution not found: ${executionId}`);
   }
   
+  // Explicitly type the data to avoid TypeScript narrowing issues
+  const executionData = rawData as ExecutionRow & { workflow: WorkflowRow | null };
+  
   const execution = mapRowToExecution(executionData);
-  const workflow = executionData.workflow as WorkflowRow | null;
+  const workflow = executionData.workflow;
   if (!workflow) {
     throw new Error(`Workflow not found for execution: ${executionId}`);
   }
@@ -1259,7 +1265,7 @@ async function storeNodeResult(
   
   await supabase
     .from('workflow_executions')
-    .update({ node_executions: nodeExecutions })
+    .update({ node_executions: nodeExecutions } as any)
     .eq('id', executionId);
 }
 
@@ -1269,13 +1275,16 @@ async function storeNodeResult(
 async function logEvent(executionId: string, event: WorkflowEvent): Promise<void> {
   const supabase = getSupabaseClient();
   
-  const { data: executionData } = await supabase
+  const { data: rawData } = await supabase
     .from('workflow_executions')
     .select('events')
     .eq('id', executionId)
     .single();
   
-  if (!executionData) return;
+  if (!rawData) return;
+  
+  // Explicitly type to avoid narrowing issues
+  const executionData = rawData as { events: any[] };
   
   const events = executionData.events || [];
   events.push({
@@ -1285,7 +1294,7 @@ async function logEvent(executionId: string, event: WorkflowEvent): Promise<void
   
   await supabase
     .from('workflow_executions')
-    .update({ events })
+    .update({ events } as any)
     .eq('id', executionId);
 }
 
@@ -1428,7 +1437,7 @@ export async function transition(
       completed_node_ids: completedNodeIds,
       active_branches: Array.from(execution.activeBranches),
       pending_joins: Object.fromEntries(execution.pendingJoins),
-    })
+    } as any)
     .eq('id', executionId);
   
   // Log transition event
@@ -1476,7 +1485,7 @@ async function markExecutionCompleted(executionId: string, output?: any): Promis
       completed_at: new Date().toISOString(),
       progress_percent: 100,
       current_node_id: null,
-    })
+    } as any)
     .eq('id', executionId);
   
   const completeEvent = createWorkflowEvent(executionId, 'execution_completed', undefined, {
@@ -1516,7 +1525,7 @@ export async function pauseExecution(executionId: string): Promise<void> {
     .update({
       status: 'paused',
       updated_at: new Date().toISOString(),
-    })
+    } as any)
     .eq('id', executionId);
   
   if (updateError) {
@@ -1558,7 +1567,7 @@ export async function resumeExecution(executionId: string): Promise<void> {
     .update({
       status: 'running',
       updated_at: new Date().toISOString(),
-    })
+    } as any)
     .eq('id', executionId);
   
   if (updateError) {
@@ -1648,7 +1657,7 @@ export async function cancelExecution(
       status: 'cancelled',
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
+    } as any)
     .eq('id', executionId);
   
   if (updateError) {
@@ -1693,7 +1702,7 @@ async function compensateNode(executionId: string, nodeId: string): Promise<void
   
   await supabase
     .from('workflow_executions')
-    .update({ node_executions: data.node_executions })
+    .update({ node_executions: data.node_executions } as any)
     .eq('id', executionId);
 }
 
@@ -1724,7 +1733,7 @@ async function releasePaymentFromEscrow(executionId: string, paymentId: string):
   
   await supabase
     .from('workflow_executions')
-    .update({ payments })
+    .update({ payments } as any)
     .eq('id', executionId);
   
   // Log payment rollback
@@ -1835,7 +1844,7 @@ export async function retryFailedNode(
     .from('workflow_executions')
     .update({
       retry_count: Object.fromEntries(execution.retryCount),
-    })
+    } as any)
     .eq('id', executionId);
   
   // Log retry event
