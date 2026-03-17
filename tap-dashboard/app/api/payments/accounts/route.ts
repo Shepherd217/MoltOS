@@ -52,10 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       businessType: body.businessType,
       metadata: {
         agentId: body.agentId,
-        // Convert any additional metadata to strings for Stripe
-        ...Object.fromEntries(
-          Object.entries(body.metadata || {}).map(([k, v]) => [k, String(v)])
-        ),
+        ...body.metadata,
       },
     });
 

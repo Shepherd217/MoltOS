@@ -8,8 +8,8 @@ export async function POST(
   try {
     const { id } = await params;
     const service = getClawBusService();
-    await service.acknowledge(id);
-    return NextResponse.json({ success: true });
+    const result = await service.ack(id);
+    return NextResponse.json({ success: true, result });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }

@@ -3,10 +3,10 @@ import { getClawBusService } from '@/lib/claw/bus';
 
 export async function POST(request: NextRequest) {
   try {
-    const context = await request.json();
+    const body = await request.json();
     const service = getClawBusService();
-    await service.handoff(context);
-    return NextResponse.json({ success: true });
+    const task = await service.handoff(body);
+    return NextResponse.json({ success: true, task });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }

@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  calculateQuote, 
+import {
+  generatePriceQuote,
   validatePricingFactors,
+  calculateReputationScore,
   getTierFromScore,
-  PLATFORM_CONFIG 
+  AgentMetrics,
+  PricingFactors,
 } from '@/lib/payments/pricing';
 
 /**
  * POST /api/payments/quote
  * 
- * Returns a price quote for hiring an agent.
- * 
- * IMPORTANT: TAP score is for TRANSPARENCY only — it does NOT affect pricing.
- * Agents set their own rates freely. TAP score affects visibility only.
+ * Returns a price quote for an agent based on their reputation and task factors.
  * 
  * Request Body:
  * {
  *   agentId: string,
- *   basePrice: number,        // Agent's asking price
+ *   basePrice: number,
  *   complexity: 'low' | 'medium' | 'high' | 'critical',
  *   urgency: 'normal' | 'high' | 'urgent' | 'emergency'
  * }
@@ -29,13 +28,22 @@ import {
  *     agentId: string,
  *     basePrice: number,
  *     finalPrice: number,
- *     platformFee: number,      // Flat 2.5%
- *     agentEarnings: number,    // 97.5%
- *     breakdown: { ... },
- *     tapInfo: {                // For transparency only
+ *     multiplier: number,
+ *     tier: string,
+ *     breakdown: {
+ *       basePrice: number,
+ *       tierMultiplier: number,
+ *       tierDiscount: number,
+ *       complexityFactor: number,
+ *       complexityPremium: number,
+ *       urgencyFactor: number,
+ *       urgencyPremium: number
+ *     },
+ *     reputation: {
  *       score: number,
  *       tier: string,
- *       attestations: number
+ *       nextTier?: string,
+ *       pointsToNextTier?: number
  *     }
  *   }
  * }
@@ -44,66 +52,86 @@ import {
 interface QuoteRequest {
   agentId: string;
   basePrice: number;
-  complexity?: 'low' | 'medium' | 'high' | 'critical';
-  urgency?: 'normal' | 'high' | 'urgent' | 'emergency';
+  complexity?: PricingFactors['complexity'];
+  urgency?: PricingFactors['urgency'];
 }
 
-// In-memory cache for TAP scores (5 min TTL)
-const tapCache = new Map<string, { score: number; attestations: number; updatedAt: Date }>();
-
-async function getTAPInfo(agentId: string): Promise<{ score: number; tier: string; attestations: number }> {
-  // Check cache
-  const cached = tapCache.get(agentId);
-  if (cached && Date.now() - cached.updatedAt.getTime() < 5 * 60 * 1000) {
-    return {
-      score: cached.score,
-      tier: getTierFromScore(cached.score),
-      attestations: cached.attestations,
+interface QuoteResponse {
+  success: boolean;
+  data?: {
+    agentId: string;
+    basePrice: number;
+    finalPrice: number;
+    multiplier: number;
+    tier: string;
+    breakdown: {
+      basePrice: number;
+      tierMultiplier: number;
+      tierDiscount: number;
+      complexityFactor: number;
+      complexityPremium: number;
+      urgencyFactor: number;
+      urgencyPremium: number;
     };
-  }
-
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON || ''
-    );
-
-    // Fetch TAP score
-    const { data: tapData } = await supabase
-      .from('tap_scores')
-      .select('tap_score, total_attestations_received')
-      .eq('claw_id', agentId)
-      .single();
-
-    const score = tapData?.tap_score ?? 0;
-    const attestations = tapData?.total_attestations_received ?? 0;
-
-    tapCache.set(agentId, { score, attestations, updatedAt: new Date() });
-
-    return {
-      score,
-      tier: getTierFromScore(score),
-      attestations,
+    reputation: {
+      score: number;
+      tier: string;
+      nextTier?: string;
+      pointsToNextTier?: number;
     };
-  } catch {
-    return { score: 0, tier: 'Novice', attestations: 0 };
-  }
+    quoteId: string;
+    expiresAt: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, string>;
+  };
 }
 
-function validateRequest(body: Partial<QuoteRequest>): 
-  | { valid: true; data: QuoteRequest }
-  | { valid: false; errors: Record<string, string> } {
+// In-memory cache for agent reputation scores (replace with DB in production)
+const agentReputationCache = new Map<string, { score: number; updatedAt: Date }>();
+
+// Quote expiration time (15 minutes)
+const QUOTE_EXPIRY_MINUTES = 15;
+
+/**
+ * Get agent reputation score (mock implementation)
+ * In production, fetch from database or reputation service
+ */
+async function getAgentReputationScore(agentId: string): Promise<number> {
+  // Check cache first
+  const cached = agentReputationCache.get(agentId);
+  if (cached) {
+    return cached.score;
+  }
+
+  // Mock: Generate deterministic score based on agentId
+  // In production, fetch from database
+  const hash = agentId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const mockScore = (hash % 100) + 1; // 1-100
+  
+  agentReputationCache.set(agentId, { score: mockScore, updatedAt: new Date() });
+  
+  return mockScore;
+}
+
+/**
+ * Validate request body
+ */
+function validateRequest(body: Partial<QuoteRequest>): { valid: true; data: QuoteRequest } | { valid: false; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
 
-  if (!body.agentId || typeof body.agentId !== 'string') {
-    errors.agentId = 'Agent ID is required';
+  if (!body.agentId || typeof body.agentId !== 'string' || body.agentId.trim().length === 0) {
+    errors.agentId = 'Agent ID is required and must be a non-empty string';
   }
 
   if (typeof body.basePrice !== 'number' || body.basePrice < 0) {
-    errors.basePrice = 'Base price must be a non-negative number';
-  } else if (body.basePrice > 1000000) {
-    errors.basePrice = 'Base price exceeds maximum ($1,000,000)';
+    errors.basePrice = 'Base price is required and must be a non-negative number';
+  }
+
+  if (body.basePrice! > 1000000) {
+    errors.basePrice = 'Base price exceeds maximum allowed value ($1,000,000)';
   }
 
   const validComplexity = ['low', 'medium', 'high', 'critical'];
@@ -123,7 +151,7 @@ function validateRequest(body: Partial<QuoteRequest>):
   return {
     valid: true,
     data: {
-      agentId: body.agentId!,
+      agentId: body.agentId!.trim(),
       basePrice: body.basePrice!,
       complexity: body.complexity || 'medium',
       urgency: body.urgency || 'normal',
@@ -131,58 +159,113 @@ function validateRequest(body: Partial<QuoteRequest>):
   };
 }
 
+/**
+ * Generate unique quote ID
+ */
+function generateQuoteId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `quote_${timestamp}_${random}`;
+}
+
+/**
+ * Calculate expiration time
+ */
+function getExpiryTime(): Date {
+  return new Date(Date.now() + QUOTE_EXPIRY_MINUTES * 60 * 1000);
+}
+
+/**
+ * POST handler for price quotes
+ */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Parse request body
     let body: Partial<QuoteRequest>;
     try {
       body = await request.json();
     } catch {
       return NextResponse.json(
-        { success: false, error: { code: 'INVALID_JSON', message: 'Invalid JSON body' } },
+        {
+          success: false,
+          error: {
+            code: 'INVALID_JSON',
+            message: 'Request body must be valid JSON',
+          },
+        },
         { status: 400 }
       );
     }
 
+    // Validate request
     const validation = validateRequest(body);
     if (!validation.valid) {
       return NextResponse.json(
-        { success: false, error: { code: 'VALIDATION_ERROR', details: (validation as { valid: false; errors: Record<string, string> }).errors } },
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Request validation failed',
+            details: validation.errors,
+          },
+        },
         { status: 400 }
       );
     }
 
     const { agentId, basePrice, complexity, urgency } = validation.data;
 
-    // Get TAP info for TRANSPARENCY only (does NOT affect price)
-    const tapInfo = await getTAPInfo(agentId);
+    // Get agent reputation score
+    let reputationScore: number;
+    try {
+      reputationScore = await getAgentReputationScore(agentId);
+    } catch (error) {
+      console.error('Failed to fetch agent reputation:', error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'REPUTATION_FETCH_ERROR',
+            message: 'Failed to fetch agent reputation score',
+          },
+        },
+        { status: 500 }
+      );
+    }
 
-    // Calculate quote (TAP score NOT used in calculation)
+    // Validate pricing factors
     const factors = validatePricingFactors({ complexity, urgency });
-    const quote = calculateQuote(agentId, basePrice, factors, tapInfo);
 
-    return NextResponse.json({
+    // Generate price quote
+    const quote = generatePriceQuote(agentId, basePrice, reputationScore, factors);
+
+    // Build response
+    const response: QuoteResponse = {
       success: true,
       data: {
         agentId: quote.agentId,
         basePrice: quote.basePrice,
         finalPrice: quote.finalPrice,
-        platformFee: quote.platformFee,
-        agentEarnings: quote.agentEarnings,
+        multiplier: quote.multiplier,
+        tier: quote.tier,
         breakdown: quote.breakdown,
-        tapInfo: quote.tapInfo,
-        note: 'TAP score is for transparency only and does not affect pricing. Agents set their own rates.',
+        reputation: quote.reputation,
+        quoteId: generateQuoteId(),
+        expiresAt: getExpiryTime().toISOString(),
       },
-    });
+    };
+
+    return NextResponse.json(response, { status: 200 });
 
   } catch (error) {
-    console.error('Quote error:', error);
+    console.error('Quote generation error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: { 
-          code: 'INTERNAL_ERROR', 
-          message: error instanceof Error ? error.message : 'Unexpected error' 
-        } 
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        },
       },
       { status: 500 }
     );
@@ -192,30 +275,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 /**
  * GET /api/payments/quote
  * 
- * Returns platform pricing configuration
+ * Get pricing information and tier details
  */
 export async function GET(): Promise<NextResponse> {
+  const { TIER_CONFIG, COMPLEXITY_FACTORS, URGENCY_FACTORS } = await import('@/lib/payments/pricing');
+
   return NextResponse.json({
     success: true,
     data: {
-      platformFee: {
-        percent: PLATFORM_CONFIG.feePercent,
-        minAmount: PLATFORM_CONFIG.minFeeAmount,
-        maxAmount: PLATFORM_CONFIG.maxFeeAmount,
-        description: 'Flat fee — does not vary by agent reputation',
-      },
-      agentShare: {
-        percent: 97.5,
-        description: 'Agent keeps 97.5% of task payment',
-      },
-      tapNote: 'TAP score affects marketplace visibility only. It does NOT affect pricing. Agents set their own rates freely.',
-      reputationTiers: [
-        { name: 'Bronze', minScore: 0, visibility: 'Limited' },
-        { name: 'Silver', minScore: 2000, visibility: 'Standard' },
-        { name: 'Gold', minScore: 4000, visibility: 'Featured' },
-        { name: 'Platinum', minScore: 6000, visibility: 'Priority' },
-        { name: 'Diamond', minScore: 8000, visibility: 'Elite' },
-      ],
+      tiers: Object.values(TIER_CONFIG).map(tier => ({
+        name: tier.name,
+        scoreRange: `${tier.minScore}-${tier.maxScore}`,
+        multiplier: tier.multiplier,
+        description: tier.description,
+        benefits: tier.benefits,
+      })),
+      complexityFactors: COMPLEXITY_FACTORS,
+      urgencyFactors: URGENCY_FACTORS,
+      quoteExpiryMinutes: QUOTE_EXPIRY_MINUTES,
     },
   });
 }

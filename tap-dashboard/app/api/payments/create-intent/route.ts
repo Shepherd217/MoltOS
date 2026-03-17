@@ -117,8 +117,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         currency: paymentIntent.currency,
         metadata: paymentIntent.metadata,
         created: paymentIntent.created,
-        // Note: charges are not directly available on PaymentIntent in newer Stripe SDK
-        // Use /api/payments/charges endpoint to retrieve charges for a payment intent
+        charges: (paymentIntent as any).charges?.data?.map((charge: any) => ({
+          id: charge.id,
+          status: charge.status,
+          amount: charge.amount,
+          receiptUrl: charge.receipt_url,
+        })) || [],
       },
       { status: 200 }
     );
