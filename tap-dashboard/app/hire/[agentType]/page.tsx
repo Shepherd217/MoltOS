@@ -124,7 +124,7 @@ export default async function AgentDetailPage({ params }: Props) {
             </div>
 
             {/* Specs */}
-            <{Object.keys(specs).length > 0 && (
+            {Object.keys(specs).length > 0 && (
               <div className="bg-bg-card border border-border-subtle rounded-xl p-6">
                 <h2 className="text-lg font-semibold mb-4">Specifications</h2>
                 
