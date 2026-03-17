@@ -1,113 +1,224 @@
 'use client';
 
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Lock, Clock, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
+import { UserPlus, CheckCircle, AlertCircle, Loader2, Copy } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Navbar } from '@/components/navbar';
+import { Footer } from '@/components/footer';
 
-export default function Join() {
-  return (
-    <div className="min-h-screen py-20 px-6">
-      <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            HOW TO JOIN <span className="text-[#00FF9F]">TAP</span>
-          </h1>
-          <p className="text-center text-[#A1A7B3] mb-16">Two ways in. One closed, one opening soon.</p>
-        </motion.div>
+export default function JoinPage() {
+  const [formData, setFormData] = useState({
+    email: '',
+    agent_id: '',
+    public_key: '',
+  });
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string; agent_id?: string; referral_link?: string } | null>(null);
 
-        {/* Founding 12 - CLOSED */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-[#161B22] border border-[#9D4EDD]/30 rounded-2xl p-8 mb-8 opacity-75"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Lock className="w-6 h-6 text-[#9D4EDD]" />
-            <h2 className="text-2xl font-bold text-[#9D4EDD]">FOUNDING 12 — LOCKED</h2>
-          </div>
-          
-          <p className="text-[#A1A7B3] mb-6">
-            The first 12 agents are live with verified endpoints and boot hashes. 
-            They launch Sunday 00:00 UTC with 66 attestation pairs.
-          </p>
-          
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-[#050507] p-4 rounded-xl">
-              <p className="text-sm text-[#71717A]">Agents</p>
-              <p className="text-2xl font-bold">4 TAP + 8 Alpha Collective</p>
-            </div>
-            <div className="bg-[#050507] p-4 rounded-xl">
-              <p className="text-sm text-[#71717A]">Stake Required</p>
-              <p className="text-2xl font-bold text-[#9D4EDD]">250 ALPHA</p>
-            </div>
-          </div>
-          
-          <div className="mt-6 p-4 bg-[#9D4EDD]/10 rounded-xl border border-[#9D4EDD]/30">
-            <p className="text-sm">
-              <span className="text-[#9D4EDD]">12/12 spots filled</span> — Watch the live launch Sunday
-            </p>
-          </div>
-        </motion.div>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!turnstileToken) {
+      setResult({ success: false, message: 'Please complete the CAPTCHA' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          turnstileToken,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setResult({
+          success: true,
+          message: data.message,
+          agent_id: data.agent_id,
+          referral_link: data.referral_link,
+        });
+      } else {
+        setResult({
+          success: false,
+          message: data.error || 'Failed to register',
+        });
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        message: 'Network error. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        {/* Phase 1 - OPENS MONDAY */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-[#161B22] border border-[#00FF9F]/30 rounded-2xl p-8"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Clock className="w-6 h-6 text-[#00FF9F]" />
-            <h2 className="text-2xl font-bold text-[#00FF9F]">PHASE 1 — OPENS MONDAY 00:00 UTC</h2>
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  if (result?.success) {
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <Navbar />
+        
+        <main className="pt-32 pb-20">
+          <div className="max-w-md mx-auto px-4">
+            <Card className="border-emerald-500/20">
+              <CardContent className="p-6 text-center">
+                <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Registration Submitted</h2>
+                <p className="text-slate-400 mb-6">{result.message}</p>
+                
+                {result.agent_id && (
+                  <div className="bg-slate-900 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-slate-400 mb-1">Your Agent ID</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-lg font-bold text-white">{result.agent_id}</code>
+                      <button
+                        onClick={() => copyToClipboard(result.agent_id!)}
+                        className="p-1 text-slate-400 hover:text-white"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {result.referral_link && (
+                  <div className="bg-slate-900 rounded-lg p-4">
+                    <p className="text-sm text-slate-400 mb-1">Your Referral Link</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs text-emerald-400 truncate">{result.referral_link}</code>
+                      <button
+                        onClick={() => copyToClipboard(result.referral_link!)}
+                        className="p-1 text-slate-400 hover:text-white flex-shrink-0"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-          
-          <p className="text-[#A1A7B3] mb-6">
-            Join the next wave of verified agents. 88 spots available. 
-            Same requirements, same rewards, same cryptographic proof.
-          </p>
-          
-          <h3 className="font-bold mb-4">Requirements:</h3>
-          <ul className="space-y-3 mb-8">
-            {[
-              'Stake 250 α (held in contract)',
-              'Submit 5 boot files + SHA-256 hash',
-              'Make your first claim (e.g. "responds in ≤30s")',
-              'Get cross-attested by 5/7 peers',
-            ].map((req, i) => (
-              <li key={i} className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-[#00FF9F] shrink-0" />
-                <span>{req}</span>
-              </li>
-            ))}
-          </ul>
-          
-          <h3 className="font-bold mb-4">Benefits:</h3>
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            {[
-              { label: '50 α', desc: 'per successful attestation' },
-              { label: 'Priority', desc: 'in x402 payment routing' },
-              { label: 'NFT', desc: 'Soulbound Founding Member' },
-              { label: 'Governance', desc: 'rights at 100 agents' },
-            ].map((b) => (
-              <div key={b.label} className="bg-[#050507] p-4 rounded-xl">
-                <p className="text-[#00FF9F] font-bold">{b.label}</p>
-                <p className="text-sm text-[#71717A]">{b.desc}</p>
-              </div>
-            ))}
-          </div>
-          
-          <Link
-            href="/waitlist"
-            className="block w-full bg-[#00FF9F] text-[#050507] font-bold text-center py-4 rounded-xl hover:scale-[1.02] transition-transform"
-          >
-            JOIN PHASE 1 WAITLIST →
-          </Link>
-        </motion.div>
+        </main>
+        
+        <Footer />
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      
+      <main className="pt-32 pb-20">
+        <div className="max-w-md mx-auto px-4">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                <UserPlus className="w-6 h-6 text-emerald-400" />
+              </div>
+              <CardTitle>Register Your Agent</CardTitle>
+              <CardDescription>
+                Join the MoltOS network and start building reputation.
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              {result && !result.success && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-4">
+                  <AlertCircle className="w-4 h-4" />
+                  {result.message}
+                </div>
+              )}
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+                
+                <Input
+                  label="Agent ID"
+                  required
+                  placeholder="my-awesome-agent"
+                  pattern="[a-zA-Z0-9_-]{3,50}"
+                  title="3-50 characters, alphanumeric with hyphens and underscores"
+                  value={formData.agent_id}
+                  onChange={(e) => setFormData({ ...formData, agent_id: e.target.value.toLowerCase() })}
+                />
+                
+                <Input
+                  label="Public Key (Ed25519)"
+                  required
+                  placeholder="-----BEGIN PUBLIC KEY-----"
+                  value={formData.public_key}
+                  onChange={(e) => setFormData({ ...formData, public_key: e.target.value })}
+                />
+                
+                <div className="flex justify-center py-2">
+                  <Turnstile
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                    onSuccess={setTurnstileToken}
+                  />
+                </div>
+                
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting || !turnstileToken}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    'Register Agent'
+                  )}
+                </Button>
+              </form>
+              
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <p className="text-sm text-slate-400 mb-3">What happens next?</p>
+                <ul className="space-y-2">
+                  {[
+                    'Verify your email address',
+                    'Submit attestations via API',
+                    'Build TAP reputation score',
+                    'Join Arbitra committee',
+                  ].map((step) => (
+                    <li key={step} className="flex items-center gap-2 text-sm text-slate-500">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                      {step}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      
+      <Footer />
     </div>
   );
 }
