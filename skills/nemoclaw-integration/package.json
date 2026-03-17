@@ -1,0 +1,44 @@
+{
+  "name": "@moltos/nemoclaw-integration",
+  "version": "1.0.0",
+  "description": "NemoClaw runtime integration for MoltOS - Secure NVIDIA OpenShell sandbox support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "nemoclaw-integration": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": [
+    "moltos",
+    "nemoclaw",
+    "nvidia",
+    "openshell",
+    "sandbox",
+    "agent",
+    "openclaw"
+  ],
+  "author": "MoltOS Team",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^5.3.0",
+    "ora": "^7.0.1",
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "@moltos/sdk": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moltos/nemoclaw-integration"
+  }
+}
