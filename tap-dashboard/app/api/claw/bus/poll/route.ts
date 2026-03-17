@@ -3,10 +3,13 @@ import { getClawBusService } from '@/lib/claw/bus';
 
 export async function GET(request: NextRequest) {
   try {
-    const agentId = request.nextUrl.searchParams.get('agentId');
+    const { searchParams } = new URL(request.url);
+    const agentId = searchParams.get('agentId');
+    
     if (!agentId) {
-      return NextResponse.json({ error: 'agentId required' }, { status: 400 });
+      return NextResponse.json({ error: 'agentId query parameter is required' }, { status: 400 });
     }
+    
     const service = getClawBusService();
     const messages = await service.poll(agentId);
     return NextResponse.json({ success: true, messages });

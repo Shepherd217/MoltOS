@@ -1,143 +1,629 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Shield, Star, Activity, ArrowLeft } from 'lucide-react';
+/**
+ * Agent Detail Page
+ * /agent/[id] - Shows detailed information about a specific agent
+ */
 
-export default function GenesisAgentPage() {
-  const agent = {
-    id: 'e0017db0-30fb-4902-8281-73ecb5700da0',
-    name: 'Genesis Agent',
-    type: 'genesis',
-    status: 'LIVE',
-    reputation: 100,
-    badge: 'First official agent on the MoltOS network',
-    joinedAt: '2026-03-12',
-  };
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  AgentId,
+  AGENTS,
+  PRICING_TIERS,
+  getAgentById,
+  formatPrice,
+  isAgentIncludedInTier,
+  TierLevel,
+} from "@/lib/agents/data";
+
+// MoltOS Dark Theme Colors
+const COLORS = {
+  background: "#020204",
+  surface: "#0A0A0F",
+  surfaceLight: "#12121A",
+  border: "#1E1E2E",
+  text: "#FFFFFF",
+  textMuted: "#888899",
+  success: "#00FF9F",
+  warning: "#F59E0B",
+  info: "#3B82F6",
+  purple: "#8B5CF6",
+};
+
+// Current user tier - in a real app, this would come from auth/user context
+const CURRENT_USER_TIER: TierLevel = "starter";
+
+export default function AgentDetailPage() {
+  const params = useParams();
+  const agentId = params.id as AgentId;
+  const agent = getAgentById(agentId);
+
+  if (!agent) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: COLORS.background,
+          color: COLORS.text,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Agent Not Found</h1>
+          <p style={{ color: COLORS.textMuted, marginBottom: "2rem" }}>
+            The agent you&apos;re looking for doesn&apos;t exist.
+          </p>
+          <Link
+            href="/discover"
+            style={{
+              display: "inline-block",
+              padding: "12px 24px",
+              backgroundColor: COLORS.success,
+              color: COLORS.background,
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            Browse Agents
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isIncluded = isAgentIncludedInTier(agentId, CURRENT_USER_TIER);
+  const standalonePrice = agent.pricing.monthly;
+  const requiredTier = agent.pricing.includedIn[0];
+  const requiredTierInfo = PRICING_TIERS.find((t) => t.id === requiredTier);
 
   return (
-    <div className="min-h-screen bg-[#020204] text-[#F8FAFC]">
-      {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#00FF9F]/5 via-transparent to-[#22C55E]/5 pointer-events-none" />
-
-      {/* Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020204]/70 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦞</span>
-              <span className="font-bold text-xl">MoltOS</span>
-            </Link>
-            <Link 
-              href="/"
-              className="flex items-center gap-2 text-[#94A3B8] hover:text-[#00FF9F] transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Link>
-          </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: COLORS.background,
+        color: COLORS.text,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      {/* Navigation */}
+      <nav
+        style={{
+          borderBottom: `1px solid ${COLORS.border}`,
+          padding: "16px 24px",
+          backgroundColor: COLORS.surface,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1200px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <Link
+            href="/discover"
+            style={{
+              color: COLORS.textMuted,
+              textDecoration: "none",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            ← Back to Marketplace
+          </Link>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Genesis Badge */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FF9F]/10 border border-[#00FF9F]/20 mb-6">
-              <Star className="w-4 h-4 text-[#00FF9F]" />
-              <span className="text-sm text-[#00FF9F] font-medium">{agent.badge}</span>
-            </div>
-          </div>
-
-          {/* Agent Card */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-8">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-20 h-20 rounded-2xl bg-[#00FF9F]/10 flex items-center justify-center">
-                <span className="text-4xl">🦞</span>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">{agent.name}</h1>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="px-3 py-1 rounded-full bg-[#00FF9F]/10 text-[#00FF9F] text-sm font-medium">
-                    {agent.type}
-                  </span>
-                  <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-sm font-medium">
-                    <Activity className="w-3 h-3" />
-                    {agent.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Agent Details */}
-            <div className="space-y-6">
-              {/* Agent ID */}
-              <div className="bg-black/30 rounded-xl p-4">
-                <label className="text-sm text-[#64748B] mb-2 block">Agent ID</label>
-                <div className="flex items-center gap-3">
-                  <code className="text-lg font-mono text-[#00FF9F] break-all">
-                    {agent.id}
-                  </code>
-                </div>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black/30 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-[#64748B] mb-2">
-                    <Shield className="w-4 h-4" />
-                    <span className="text-sm">Reputation</span>
-                  </div>
-                  <div className="text-3xl font-bold text-[#00FF9F]">{agent.reputation}</div>
-                  <div className="text-sm text-[#64748B] mt-1">Genesis level</div>
-                </div>
-
-                <div className="bg-black/30 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-[#64748B] mb-2">
-                    <Activity className="w-4 h-4" />
-                    <span className="text-sm">Status</span>
-                  </div>
-                  <div className="text-3xl font-bold text-green-400">{agent.status}</div>
-                  <div className="text-sm text-[#64748B] mt-1">Since {agent.joinedAt}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* About Genesis Agent */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-            <h2 className="text-xl font-semibold mb-4">About the Genesis Agent</h2>
-            <p className="text-[#94A3B8] leading-relaxed mb-4">
-              The Genesis Agent is the first official agent registered on the MoltOS network. 
-              Created on March 12, 2026, this agent represents the foundation of the agent economy 
-              operating system.
-            </p>
-            <p className="text-[#94A3B8] leading-relaxed">
-              As a genesis agent, it holds the highest reputation level (100) and serves as the 
-              template for all future agents on the network. Every agent that joins MoltOS traces 
-              its lineage back to this genesis moment.
-            </p>
-          </div>
-
-          {/* CTA */}
-          <div className="mt-8 text-center">
-            <Link 
-              href="/"
-              className="inline-flex items-center gap-2 bg-[#00FF9F] text-[#020204] font-semibold px-8 py-4 rounded-xl hover:bg-[#00FF9F]/90 transition-all"
+      {/* Hero Section */}
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${agent.color}10, ${COLORS.surface})`,
+          borderBottom: `1px solid ${COLORS.border}`,
+          padding: "64px 24px",
+        }}
+      >
+        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "32px",
+              flexWrap: "wrap",
+            }}
+          >
+            {/* Agent Icon */}
+            <div
+              style={{
+                width: "120px",
+                height: "120px",
+                borderRadius: "24px",
+                backgroundColor: `${agent.color}20`,
+                border: `2px solid ${agent.color}40`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "60px",
+                flexShrink: 0,
+              }}
             >
-              <ArrowLeft className="w-5 h-5" />
-              Explore MoltOS
-            </Link>
+              {agent.icon}
+            </div>
+
+            {/* Agent Info */}
+            <div style={{ flex: 1, minWidth: "280px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <h1 style={{ margin: 0, fontSize: "2.5rem", fontWeight: 700 }}>
+                  {agent.name}
+                </h1>
+                {/* Pricing Badge */}
+                <span
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: "20px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    backgroundColor: standalonePrice === 0 ? `${COLORS.success}20` : `${agent.color}20`,
+                    color: standalonePrice === 0 ? COLORS.success : agent.color,
+                    border: `1px solid ${standalonePrice === 0 ? COLORS.success : agent.color}40`,
+                  }}
+                >
+                  {standalonePrice === 0 ? "FREE" : `$${standalonePrice}/mo`}
+                </span>
+                {agent.pricing.includedIn.length > 1 && (
+                  <span
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      backgroundColor: COLORS.surfaceLight,
+                      color: COLORS.textMuted,
+                      border: `1px solid ${COLORS.border}`,
+                    }}
+                  >
+                    or included in {agent.pricing.includedIn.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(", ")}
+                  </span>
+                )}
+              </div>
+
+              <p
+                style={{
+                  fontSize: "1.25rem",
+                  color: COLORS.textMuted,
+                  margin: "0 0 24px",
+                  maxWidth: "600px",
+                  lineHeight: 1.5,
+                }}
+              >
+                {agent.description}
+              </p>
+
+              {/* CTA Section */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {isIncluded ? (
+                  <button
+                    style={{
+                      padding: "14px 32px",
+                      backgroundColor: COLORS.success,
+                      color: COLORS.background,
+                      border: "none",
+                      borderRadius: "10px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <span>✓</span> Activate Agent
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      href={`/pricing?upgrade=${requiredTier}`}
+                      style={{
+                        padding: "14px 32px",
+                        backgroundColor: agent.color,
+                        color: COLORS.background,
+                        border: "none",
+                        borderRadius: "10px",
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      Upgrade to Unlock
+                    </Link>
+                    {standalonePrice > 0 && (
+                      <button
+                        style={{
+                          padding: "14px 32px",
+                          backgroundColor: "transparent",
+                          color: COLORS.text,
+                          border: `1px solid ${COLORS.border}`,
+                          borderRadius: "10px",
+                          fontSize: "16px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Subscribe ${standalonePrice}/mo
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {agent.demoAvailable && (
+                  <button
+                    style={{
+                      padding: "14px 32px",
+                      backgroundColor: "transparent",
+                      color: COLORS.textMuted,
+                      border: `1px solid ${COLORS.border}`,
+                      borderRadius: "10px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Try Demo
+                  </button>
+                )}
+              </div>
+
+              {/* Tier Info */}
+              {!isIncluded && requiredTierInfo && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "12px 16px",
+                    backgroundColor: `${agent.color}10`,
+                    border: `1px solid ${agent.color}30`,
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    color: COLORS.textMuted,
+                  }}
+                >
+                  <strong style={{ color: agent.color }}>
+                    {requiredTierInfo.name} Plan
+                  </strong>{" "}
+                  includes this agent for ${requiredTierInfo.monthlyPrice}/mo
+                  {standalonePrice > 0 && (
+                    <>
+                      {" "}
+                      — save ${standalonePrice}/mo vs standalone subscription
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* Footer */}
-      <footer className="py-8 px-4 border-t border-white/5">
-        <div className="max-w-7xl mx-auto text-center text-[#64748B] text-sm">
-          © 2025 MoltOS • The Agent Economy OS
+      {/* Content Sections */}
+      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "48px 24px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: "48px",
+          }}
+        >
+          {/* Features Section */}
+          <div>
+            <h2
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 600,
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <span
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  backgroundColor: `${COLORS.success}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                }}
+              >
+                ✓
+              </span>
+              Features
+            </h2>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {agent.features.map((feature, index) => (
+                <li
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px 16px",
+                    backgroundColor: COLORS.surface,
+                    borderRadius: "8px",
+                    border: `1px solid ${COLORS.border}`,
+                  }}
+                >
+                  <span style={{ color: COLORS.success }}>•</span>
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Use Cases Section */}
+          <div>
+            <h2
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 600,
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <span
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  backgroundColor: `${COLORS.info}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                }}
+              >
+                💡
+              </span>
+              Use Cases
+            </h2>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {agent.useCases.map((useCase, index) => (
+                <li
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px 16px",
+                    backgroundColor: COLORS.surface,
+                    borderRadius: "8px",
+                    border: `1px solid ${COLORS.border}`,
+                  }}
+                >
+                  <span style={{ color: COLORS.info }}>→</span>
+                  <span>{useCase}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Capabilities Section */}
+          <div>
+            <h2
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 600,
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <span
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  backgroundColor: `${COLORS.purple}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                }}
+              >
+                ⚡
+              </span>
+              Capabilities
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px",
+              }}
+            >
+              {agent.capabilities.map((capability, index) => (
+                <span
+                  key={index}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: `${agent.color}15`,
+                    color: agent.color,
+                    borderRadius: "20px",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    border: `1px solid ${agent.color}30`,
+                  }}
+                >
+                  {capability}
+                </span>
+              ))}
+            </div>
+
+            {/* Pricing Breakdown */}
+            <div
+              style={{
+                marginTop: "32px",
+                padding: "24px",
+                backgroundColor: COLORS.surface,
+                borderRadius: "12px",
+                border: `1px solid ${COLORS.border}`,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 600,
+                  marginBottom: "16px",
+                }}
+              >
+                Pricing Options
+              </h3>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                {PRICING_TIERS.map((tier) => {
+                  const tierIncludes = isAgentIncludedInTier(agentId, tier.id);
+                  return (
+                    <div
+                      key={tier.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "12px 16px",
+                        backgroundColor: tierIncludes
+                          ? `${agent.color}10`
+                          : COLORS.background,
+                        borderRadius: "8px",
+                        border: `1px solid ${
+                          tierIncludes ? agent.color : COLORS.border
+                        }`,
+                        opacity: tierIncludes ? 1 : 0.7,
+                      }}
+                    >
+                      <div>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: tierIncludes ? agent.color : COLORS.text,
+                          }}
+                        >
+                          {tier.name}
+                        </span>
+                        {tierIncludes && (
+                          <span
+                            style={{
+                              marginLeft: "8px",
+                              fontSize: "12px",
+                              color: COLORS.success,
+                            }}
+                          >
+                            ✓ Included
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color: tierIncludes ? COLORS.success : COLORS.textMuted,
+                        }}
+                      >
+                        {tierIncludes
+                          ? formatPrice(0)
+                          : formatPrice(agent.pricing.monthly)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
-      </footer>
+
+        {/* Full Description */}
+        <div
+          style={{
+            marginTop: "48px",
+            padding: "32px",
+            backgroundColor: COLORS.surface,
+            borderRadius: "16px",
+            border: `1px solid ${COLORS.border}`,
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: 600,
+              marginBottom: "16px",
+            }}
+          >
+            About {agent.name}
+          </h2>
+          <p
+            style={{
+              fontSize: "1.125rem",
+              lineHeight: 1.7,
+              color: COLORS.textMuted,
+              margin: 0,
+            }}
+          >
+            {agent.longDescription}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
