@@ -12,8 +12,8 @@ interface AgentData {
   public_key: string;
   referral_count: number;
   confirmed: boolean;
-  staking_status: string;
-  nft_minted: boolean;
+  verification_status: string;
+  profile_complete: boolean;
 }
 
 export default function PersonalDashboard() {
@@ -103,8 +103,8 @@ export default function PersonalDashboard() {
               <p className="text-2xl font-bold text-[#00E5FF]">{data.referral_count}</p>
             </div>
             <div className="bg-[#050507] p-4 rounded-xl">
-              <p className="text-[#71717A] text-sm mb-1">NFT Status</p>
-              <p className="text-2xl font-bold">{data.nft_minted ? '✅ Minted' : '⏳ Pending'}</p>
+              <p className="text-[#71717A] text-sm mb-1">Profile Status</p>
+              <p className="text-2xl font-bold">{data.profile_complete ? '✅ Complete' : '⏳ Pending'}</p>
             </div>
           </div>
         </motion.div>

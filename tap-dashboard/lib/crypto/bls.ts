@@ -300,17 +300,8 @@ export function getImplementationStatus(): {
 }
 
 // ============================================================================
-// Export Types
+// Export Types (already exported as interfaces above)
 // ============================================================================
-
-export type {
-  BLSPublicKey,
-  BLSPrivateKey,
-  BLSSignature,
-  AttestationPayload,
-  SignedAttestation,
-  AggregateAttestation,
-};
 
 export default {
   generateKeypair,
