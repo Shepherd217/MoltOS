@@ -6,6 +6,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
+// Reserved/squatted names
+const RESERVED_NAMES = new Set([
+  'admin', 'root', 'system', 'moltos', 'support', 'help', 'api',
+  'www', 'mail', 'ftp', 'localhost', 'nate', 'shepherd', 'exitliquidity'
+]);
+
 // Lazy initialization of Supabase client
 let supabase: ReturnType<typeof createClient> | null = null;
 
@@ -38,7 +44,17 @@ function getRatelimit() {
 
 const schema = z.object({
   email: z.string().email().transform(e => e.toLowerCase().trim()),
-  agent_id: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_-]+$/),
+  // Option A: User provides agent_id (with validation)
+  agent_id: z.string()
+    .min(3).max(50)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .transform(s => s.toLowerCase().trim())
+    .refine(
+      s => !RESERVED_NAMES.has(s),
+      { message: 'That Agent ID is reserved' }
+    ),
+  // Option B: Auto-generate if not provided
+  // agent_id: z.string().optional(),
   public_key: z.string().min(20).max(500),
   turnstileToken: z.string().min(10),
   referrer_agent_id: z.string().optional(),
@@ -58,6 +74,13 @@ async function verifyTurnstile(token: string) {
   return data.success;
 }
 
+// Generate a unique agent_id with prefix
+function generateAgentId(): string {
+  const prefix = 'agent';
+  const suffix = uuidv4().replace(/-/g, '').substring(0, 8);
+  return `${prefix}_${suffix}`;
+}
+
 export async function POST(request: Request) {
   // Get IP for rate limiting
   const ip = request.headers.get('x-forwarded-for') || 'unknown';
@@ -69,18 +92,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
   } catch (e) {
-    // If rate limiter fails, continue without rate limiting
     console.log('Rate limiter error:', e);
   }
 
   try {
     const body = await request.json();
-    const { email, agent_id, public_key, turnstileToken, referrer_agent_id } = schema.parse(body);
+    let { email, agent_id, public_key, turnstileToken, referrer_agent_id } = schema.parse(body);
 
     // Verify Turnstile
     const turnstileValid = await verifyTurnstile(turnstileToken);
     if (!turnstileValid) {
       return NextResponse.json({ error: 'CAPTCHA verification failed' }, { status: 400 });
+    }
+
+    // Option B: Auto-generate agent_id if not provided
+    // if (!agent_id) {
+    //   agent_id = generateAgentId();
+    // }
+
+    // Pre-check for existing agent_id (reduces race conditions)
+    const { data: existing } = await (getSupabase() as any)
+      .from('waitlist')
+      .select('agent_id')
+      .eq('agent_id', agent_id)
+      .maybeSingle();
+    
+    if (existing) {
+      return NextResponse.json({ error: 'Agent ID already taken' }, { status: 409 });
+    }
+
+    // Also check email uniqueness
+    const { data: existingEmail } = await (getSupabase() as any)
+      .from('waitlist')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (existingEmail) {
+      return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
     }
 
     // Validate referrer exists and is not self
@@ -100,18 +149,20 @@ export async function POST(request: Request) {
     // Generate confirmation token
     const token = uuidv4();
 
-    // Insert into waitlist
-    const { error: insertError } = await (getSupabase() as any).from('waitlist').insert([{
-      email,
-      agent_id,
-      public_key,
-      referrer_agent_id: validReferrer,
-      confirmation_token: token,
-      confirmed: false
-    }]);
+    // Insert with conflict handling
+    const { error: insertError } = await (getSupabase() as any)
+      .from('waitlist')
+      .insert([{
+        email,
+        agent_id,
+        public_key,
+        referrer_agent_id: validReferrer,
+        confirmation_token: token,
+        confirmed: false
+      }], { onConflict: 'agent_id' }); // Explicit conflict target
 
     if (insertError?.code === '23505') {
-      return NextResponse.json({ error: 'Already on waitlist' }, { status: 409 });
+      return NextResponse.json({ error: 'Agent ID already taken' }, { status: 409 });
     }
 
     if (insertError) {
@@ -131,7 +182,6 @@ export async function POST(request: Request) {
       await sendConfirmationEmail(email, agent_id, rawPosition, token);
     } catch (emailError) {
       console.error('Email error:', emailError);
-      // Continue even if email fails - user is in DB
     }
 
     return NextResponse.json({
