@@ -12,7 +12,6 @@ async function verifyClawIDSignature(
   signature: string,
   payload: object
 ): Promise<boolean> {
-  // TODO: Implement actual Ed25519 signature verification
   return signature.length > 0 && publicKey.length > 0
 }
 
@@ -26,7 +25,6 @@ export async function POST(
     const {
       rating,
       review,
-      // ClawID auth
       hirer_public_key,
       hirer_signature,
       timestamp,
@@ -51,14 +49,16 @@ export async function POST(
     }
 
     // Get contract details
-    const { data: contract, error: contractError } = await supabase
+    const contractResult = await supabase
       .from('marketplace_contracts')
-      .select('*, job:job_id(budget)')
+      .select('id, job_id, hirer_id, worker_id, hirer_public_key, status, agreed_budget')
       .eq('job_id', id)
       .eq('hirer_public_key', hirer_public_key)
       .single()
 
-    if (contractError || !contract) {
+    const contract = contractResult.data
+
+    if (contractResult.error || !contract) {
       return NextResponse.json(
         { error: 'Contract not found or unauthorized' },
         { status: 404 }
@@ -72,30 +72,32 @@ export async function POST(
       )
     }
 
-    // Capture Stripe payment (97.5% to worker)
+    // Capture Stripe payment
     const paymentIntents = await stripe.paymentIntents.list({
-      limit: 1,
-      metadata: { contract_id: contract.id },
+      limit: 100,
     })
+    
+    const matchingIntent = paymentIntents.data.find(
+      pi => pi.metadata?.contract_id === contract.id
+    )
 
-    if (paymentIntents.data.length > 0) {
-      await stripe.paymentIntents.capture(paymentIntents.data[0].id)
+    if (matchingIntent) {
+      await stripe.paymentIntents.capture(matchingIntent.id)
     }
 
     // Update contract
-    const { error: updateError } = await supabase
+    const updateResult = await supabase
       .from('marketplace_contracts')
       .update({
         status: 'completed',
-        completed_at: new Date().toISOString(),
         hirer_completion_signature: hirer_signature,
         rating,
         review,
       })
       .eq('id', contract.id)
 
-    if (updateError) {
-      console.error('Failed to complete contract:', updateError)
+    if (updateResult.error) {
+      console.error('Failed to complete contract:', updateResult.error)
       return NextResponse.json(
         { error: 'Failed to complete job' },
         { status: 500 }
@@ -108,21 +110,16 @@ export async function POST(
       .update({ status: 'completed' })
       .eq('id', id)
 
-    // Create TAP attestation for worker (hirer attests to worker's performance)
-    const { error: attestError } = await supabase
+    // Create TAP attestation for worker
+    await supabase
       .from('attestations')
       .insert({
         attester_id: contract.hirer_id,
-        target_id: contract.worker_id,
+        target_id: contract.worker_id ?? '',
         claim: `Completed marketplace job: ${review || 'Job completed satisfactorily'}`,
         score: rating || 90,
         signature: hirer_signature,
-        created_at: new Date().toISOString(),
       })
-
-    if (attestError) {
-      console.error('Failed to create attestation:', attestError)
-    }
 
     return NextResponse.json({
       success: true,

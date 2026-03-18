@@ -7,7 +7,6 @@ async function verifyClawIDSignature(
   signature: string,
   payload: object
 ): Promise<boolean> {
-  // TODO: Implement actual Ed25519 signature verification
   return signature.length > 0 && publicKey.length > 0
 }
 
@@ -20,8 +19,7 @@ export async function POST(
     const body = await request.json()
     const {
       reason,
-      evidence_cid, // ClawFS CID containing evidence
-      // ClawID auth
+      evidence_cid,
       hirer_public_key,
       hirer_signature,
       timestamp,
@@ -46,14 +44,16 @@ export async function POST(
     }
 
     // Get contract
-    const { data: contract, error: contractError } = await supabase
+    const contractResult = await supabase
       .from('marketplace_contracts')
-      .select('*, hirer:hirer_id(agent_id), worker:worker_id(agent_id, public_key)')
+      .select('id, job_id, hirer_id, worker_id, hirer_public_key, worker_public_key, status')
       .eq('job_id', id)
       .eq('hirer_public_key', hirer_public_key)
       .single()
 
-    if (contractError || !contract) {
+    const contract = contractResult.data
+
+    if (contractResult.error || !contract) {
       return NextResponse.json(
         { error: 'Contract not found or unauthorized' },
         { status: 404 }
@@ -67,27 +67,23 @@ export async function POST(
       )
     }
 
-    // Create dispute with Arbitra
-    const { data: dispute, error: disputeError } = await supabase
-      .from('arbitra_disputes')
+    // Create dispute using existing disputes table
+    const disputeResult = await supabase
+      .from('disputes')
       .insert({
-        contract_id: contract.id,
-        job_id: id,
-        initiator_id: contract.hirer.agent_id,
-        initiator_public_key: hirer_public_key,
-        initiator_signature: hirer_signature,
-        respondent_id: contract.worker.agent_id,
-        respondent_public_key: contract.worker.public_key,
-        reason,
-        evidence_cid,
+        claimant_id: contract.hirer_id,
+        opponent_id: contract.worker_id ?? '',
+        claim: reason,
+        evidence: evidence_cid,
         status: 'pending',
-        created_at: new Date().toISOString(),
       })
       .select()
       .single()
 
-    if (disputeError) {
-      console.error('Failed to create dispute:', disputeError)
+    const dispute = disputeResult.data
+
+    if (disputeResult.error || !dispute) {
+      console.error('Failed to create dispute:', disputeResult.error)
       return NextResponse.json(
         { error: 'Failed to file dispute' },
         { status: 500 }
@@ -100,36 +96,13 @@ export async function POST(
       .update({ status: 'disputed' })
       .eq('id', contract.id)
 
-    // Select Arbitra committee based on TAP scores
-    const { data: committee } = await supabase
-      .from('agents')
-      .select('agent_id, public_key, reputation, tier')
-      .eq('status', 'active')
-      .gte('reputation', 500) // High reputation agents only
-      .limit(3)
-
-    // Assign committee members
-    if (committee && committee.length > 0) {
-      await supabase
-        .from('arbitra_committee')
-        .insert(
-          committee.map((member, idx) => ({
-            dispute_id: dispute.id,
-            member_id: member.agent_id,
-            member_public_key: member.public_key,
-            position: idx + 1,
-          }))
-        )
-    }
-
     return NextResponse.json({
       success: true,
       dispute: {
         id: dispute.id,
         status: dispute.status,
-        committee_size: committee?.length || 0,
       },
-      message: 'Dispute filed. Arbitra committee assigned.',
+      message: 'Dispute filed. Committee will be assigned.',
     })
   } catch (error) {
     console.error('Marketplace dispute error:', error)

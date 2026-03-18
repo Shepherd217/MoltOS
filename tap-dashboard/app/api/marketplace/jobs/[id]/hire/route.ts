@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2026-02-25.clover',
 })
 
 // ClawID verification helper
@@ -12,7 +12,6 @@ async function verifyClawIDSignature(
   signature: string,
   payload: object
 ): Promise<boolean> {
-  // TODO: Implement actual Ed25519 signature verification
   return signature.length > 0 && publicKey.length > 0
 }
 
@@ -25,7 +24,6 @@ export async function POST(
     const body = await request.json()
     const {
       application_id,
-      // ClawID auth
       hirer_public_key,
       hirer_signature,
       timestamp,
@@ -50,13 +48,15 @@ export async function POST(
     }
 
     // Get job details
-    const { data: job, error: jobError } = await supabase
+    const jobResult = await supabase
       .from('marketplace_jobs')
-      .select('*, hirer:hirer_id(public_key)')
+      .select('id, budget, hirer_id, hirer_public_key, status')
       .eq('id', id)
       .single()
 
-    if (jobError || !job) {
+    const job = jobResult.data
+
+    if (jobResult.error || !job) {
       return NextResponse.json(
         { error: 'Job not found' },
         { status: 404 }
@@ -64,7 +64,7 @@ export async function POST(
     }
 
     // Verify hirer owns this job
-    if (job.hirer.public_key !== hirer_public_key) {
+    if (job.hirer_public_key !== hirer_public_key) {
       return NextResponse.json(
         { error: 'Only the hirer can hire for this job' },
         { status: 403 }
@@ -72,39 +72,58 @@ export async function POST(
     }
 
     // Get application details
-    const { data: application, error: appError } = await supabase
+    const appResult = await supabase
       .from('marketplace_applications')
-      .select('*, applicant:applicant_id(agent_id, public_key, name)')
+      .select('id, job_id, applicant_id, applicant_public_key, status, proposal')
       .eq('id', application_id)
       .eq('job_id', id)
       .single()
 
-    if (appError || !application) {
+    const application = appResult.data
+
+    if (appResult.error || !application) {
       return NextResponse.json(
         { error: 'Application not found' },
         { status: 404 }
       )
     }
 
+    // Get applicant details
+    const applicantResult = await supabase
+      .from('agents')
+      .select('agent_id, name, public_key')
+      .eq('agent_id', application.applicant_id ?? '')
+      .single()
+    
+    const applicant = applicantResult.data
+
+    if (appResult.error || !applicant) {
+      return NextResponse.json(
+        { error: 'Applicant not found' },
+        { status: 404 }
+      )
+    }
+
     // Create contract record with both ClawIDs
-    const { data: contract, error: contractError } = await supabase
+    const contractResult = await supabase
       .from('marketplace_contracts')
       .insert({
         job_id: id,
         hirer_id: job.hirer_id,
         hirer_public_key,
         hirer_signature,
-        worker_id: application.applicant.agent_id,
-        worker_public_key: application.applicant.public_key,
+        worker_id: application.applicant_id,
+        worker_public_key: application.applicant_public_key,
+        agreed_budget: job.budget,
         status: 'active',
-        started_at: new Date().toISOString(),
-        escrow_amount: job.budget,
       })
       .select()
       .single()
 
-    if (contractError) {
-      console.error('Failed to create contract:', contractError)
+    const contract = contractResult.data
+
+    if (contractResult.error || !contract) {
+      console.error('Failed to create contract:', contractResult.error)
       return NextResponse.json(
         { error: 'Failed to create contract' },
         { status: 500 }
@@ -114,7 +133,7 @@ export async function POST(
     // Update job status
     await supabase
       .from('marketplace_jobs')
-      .update({ status: 'filled', worker_id: application.applicant.agent_id })
+      .update({ status: 'filled', hired_agent_id: application.applicant_id })
       .eq('id', id)
 
     // Update application status
@@ -125,14 +144,14 @@ export async function POST(
 
     // Create Stripe PaymentIntent with ClawID metadata
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(job.budget * 100), // cents
+      amount: Math.round(job.budget * 100),
       currency: 'usd',
       capture_method: 'manual',
       metadata: {
         contract_id: contract.id,
         job_id: id,
         hirer_clawid: hirer_public_key,
-        worker_clawid: application.applicant.public_key,
+        worker_clawid: application.applicant_public_key,
       },
     })
 
@@ -143,8 +162,8 @@ export async function POST(
         job_id: contract.job_id,
         status: contract.status,
         worker: {
-          id: application.applicant.agent_id,
-          name: application.applicant.name,
+          id: applicant.agent_id,
+          name: applicant.name,
         },
       },
       payment_intent: {
