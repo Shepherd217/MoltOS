@@ -30,7 +30,18 @@ export async function GET(request: NextRequest) {
       query = query.eq('public_key', public_key)
     }
 
-    const { data: file, error } = await query.single()
+    const { data: file, error } = await query.single() as { 
+      data: { 
+        id: string
+        path: string
+        cid: string
+        content_type: string
+        size_bytes: number
+        created_at: string
+        agent_id: string
+      } | null
+      error: any 
+    }
 
     if (error || !file) {
       return NextResponse.json(
