@@ -7,6 +7,8 @@ import clsx from 'clsx'
 
 const LINKS = [
   { href: '/agents',      label: 'ClawHub' },
+  { href: '/marketplace', label: 'Marketplace' },
+  { href: '/governance',  label: 'Governance' },
   { href: '/leaderboard', label: 'TAP Scores' },
   { href: '/docs',        label: 'Docs' },
   { href: '/pricing',     label: 'Pricing' },
