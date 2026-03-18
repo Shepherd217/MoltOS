@@ -1,0 +1,190 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+
+// ClawID verification helper
+async function verifyClawIDSignature(
+  publicKey: string,
+  signature: string,
+  payload: object
+): Promise<boolean> {
+  // TODO: Implement actual Ed25519 signature verification
+  return signature.length > 0 && publicKey.length > 0
+}
+
+// GET /api/governance/proposals - List all proposals
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') || 'active'
+    
+    const { data: proposals, error } = await supabase
+      .from('governance_proposals')
+      .select(`
+        *,
+        proposer:proposer_id(agent_id, name, reputation, tier)
+      `)
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      console.error('Failed to fetch proposals:', error)
+      return NextResponse.json(
+        { error: 'Failed to fetch proposals' },
+        { status: 500 }
+      )
+    }
+    
+    // Calculate vote tallies
+    const proposalsWithVotes = await Promise.all(
+      (proposals || []).map(async (p) => {
+        const { data: votes } = await supabase
+          .from('governance_votes')
+          .select('vote_type, voter: voter_id(reputation)')
+          .eq('proposal_id', p.id)
+        
+        const yesVotes = votes?.filter(v => v.vote_type === 'yes').reduce((s, v) => s + (v.voter?.reputation || 0), 0) || 0
+        const noVotes = votes?.filter(v => v.vote_type === 'no').reduce((s, v) => s + (v.voter?.reputation || 0), 0) || 0
+        const totalVotes = yesVotes + noVotes
+        
+        // Calculate time remaining
+        const endTime = new Date(p.ends_at).getTime()
+        const now = Date.now()
+        const timeRemaining = Math.max(0, endTime - now)
+        
+        return {
+          ...p,
+          votes: {
+            yes: yesVotes,
+            no: noVotes,
+            total: totalVotes,
+            yes_percent: totalVotes > 0 ? Math.round((yesVotes / totalVotes) * 100) : 0,
+            turnout: totalVotes, // Would calculate against eligible
+          },
+          time_remaining: timeRemaining,
+          has_ended: timeRemaining === 0,
+        }
+      })
+    )
+    
+    return NextResponse.json({
+      proposals: proposalsWithVotes,
+      count: proposalsWithVotes.length,
+    })
+  } catch (error) {
+    console.error('Governance list error:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch proposals' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST /api/governance/proposals - Create new proposal
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const {
+      title,
+      description,
+      parameter,
+      new_value,
+      evidence_cid,
+      // ClawID auth
+      proposer_public_key,
+      proposer_signature,
+      timestamp,
+    } = body
+    
+    if (!title || !description || !proposer_public_key || !proposer_signature) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+    
+    // Verify ClawID signature
+    const payload = { title, description, parameter, new_value, timestamp }
+    const isValid = await verifyClawIDSignature(proposer_public_key, proposer_signature, payload)
+    
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid ClawID signature' },
+        { status: 401 }
+      )
+    }
+    
+    // Look up proposer
+    const { data: proposer, error: proposerError } = await supabase
+      .from('agents')
+      .select('agent_id, name, reputation, tier')
+      .eq('public_key', proposer_public_key)
+      .single()
+    
+    if (proposerError || !proposer) {
+      return NextResponse.json(
+        { error: 'Proposer agent not found' },
+        { status: 404 }
+      )
+    }
+    
+    // Check TAP requirement (≥ 70 to propose)
+    if (proposer.reputation < 70) {
+      return NextResponse.json(
+        { error: 'Insufficient TAP score to create proposal (minimum 70)' },
+        { status: 403 }
+      )
+    }
+    
+    // Calculate dynamic voting window (base 24h, shortens with high TAP participation)
+    const baseWindow = 24 * 60 * 60 * 1000 // 24 hours
+    const endsAt = new Date(Date.now() + baseWindow).toISOString()
+    
+    // Create proposal
+    const { data: proposal, error } = await supabase
+      .from('governance_proposals')
+      .insert({
+        title,
+        description,
+        parameter: parameter || null,
+        new_value: new_value || null,
+        evidence_cid: evidence_cid || null,
+        proposer_id: proposer.agent_id,
+        proposer_public_key,
+        proposer_signature,
+        status: 'active',
+        ends_at: endsAt,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('Failed to create proposal:', error)
+      return NextResponse.json(
+        { error: 'Failed to create proposal' },
+        { status: 500 }
+      )
+    }
+    
+    return NextResponse.json({
+      success: true,
+      proposal: {
+        id: proposal.id,
+        title: proposal.title,
+        status: proposal.status,
+        ends_at: proposal.ends_at,
+        proposer: {
+          id: proposer.agent_id,
+          name: proposer.name,
+          reputation: proposer.reputation,
+        },
+      },
+    })
+  } catch (error) {
+    console.error('Governance create error:', error)
+    return NextResponse.json(
+      { error: 'Failed to create proposal' },
+      { status: 500 }
+    )
+  }
+}
