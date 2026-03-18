@@ -9,16 +9,21 @@ export interface RawSource {
   url?: string;
   sourceType: SourceType;
   retrievedAt: Date;
+  publishedAt?: Date;
+  author?: string;
+  type?: SourceType;
   metadata?: Record<string, unknown>;
 }
 
 export interface Finding {
   id: string;
   content: string;
+  statement?: string;
   confidence: number;
   sources: string[];
   citations: Citation[];
   createdAt: Date;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Citation {
@@ -28,9 +33,15 @@ export interface Citation {
 }
 
 export interface Contradiction {
-  findingA: Finding;
-  findingB: Finding;
+  id?: string;
+  findingA?: Finding;
+  findingB?: Finding;
+  claimA?: string;
+  claimB?: string;
+  sourceA?: string;
+  sourceB?: string;
   severity: 'low' | 'medium' | 'high';
+  resolution?: string;
 }
 
 export interface FactCheckResult {
@@ -40,15 +51,23 @@ export interface FactCheckResult {
   findings: Finding[];
   contradictions: Contradiction[];
   sources: RawSource[];
+  supportingSources?: RawSource[];
+  opposingSources?: RawSource[];
+  contradictingSources?: RawSource[];
+  explanation?: string;
 }
 
 export interface ResearchMemory {
   id: string;
   query: string;
-  findings: Finding[];
+  findings: string[] | Finding[];
   sources: RawSource[];
   createdAt: Date;
   updatedAt: Date;
+  timestamp?: Date;
+  accessCount?: number;
+  relatedQueries?: string[];
+  relatedEntries?: string[];
 }
 
 export interface ResearchJob {
@@ -56,8 +75,11 @@ export interface ResearchJob {
   query: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number;
+  result?: any;
   findings: Finding[];
   sources: RawSource[];
+  depth?: number;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   completedAt?: Date;
 }
@@ -67,6 +89,9 @@ export interface ResearchOptions {
   minConfidence?: number;
   timeoutMs?: number;
   sourceTypes?: SourceType[];
+  depth?: number;
+  timeRange?: { start?: Date; end?: Date } | 'all';
+  language?: string;
 }
 
 export type SourceType = 

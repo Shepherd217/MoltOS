@@ -176,7 +176,7 @@ export class ResearchMemoryStore {
     const allFindings = new Set<string>();
     for (const entry of relatedEntries) {
       for (const finding of entry.findings) {
-        allFindings.add(finding.toLowerCase());
+        allFindings.add(finding.statement.toLowerCase());
       }
     }
 
