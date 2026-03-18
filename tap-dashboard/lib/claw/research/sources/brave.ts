@@ -9,7 +9,8 @@ const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
 const BRAVE_API_URL = 'https://api.search.brave.com/res/v1/web/search';
 
 export class BraveSearchAdapter implements SourceAdapter {
-  name: SourceType = 'web';
+  name = 'Brave Search';
+  type: SourceType = 'web';
 
   async search(query: string, options: ResearchOptions): Promise<RawSource[]> {
     if (!BRAVE_API_KEY) {

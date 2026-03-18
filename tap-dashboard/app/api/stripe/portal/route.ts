@@ -18,7 +18,7 @@ function getStripe(): Stripe {
       throw new Error('STRIPE_SECRET_KEY is not defined. Please set it in your environment variables.');
     }
     stripeClient = new Stripe(key, {
-      apiVersion: '2024-04-10',
+      apiVersion: '2026-02-25.clover',
       typescript: true,
     });
   }

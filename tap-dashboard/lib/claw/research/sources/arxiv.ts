@@ -8,7 +8,8 @@ import { SourceAdapter, RawSource, ResearchOptions, SourceType } from '@/types/r
 const ARXIV_API_URL = 'http://export.arxiv.org/api/query';
 
 export class ArxivAdapter implements SourceAdapter {
-  name: SourceType = 'arxiv';
+  name = 'arxiv';
+  type: SourceType = 'arxiv';
 
   async search(query: string, options: ResearchOptions): Promise<RawSource[]> {
     const maxResults = options.maxSources || 10;

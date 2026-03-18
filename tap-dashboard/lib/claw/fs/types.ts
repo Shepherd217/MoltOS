@@ -43,6 +43,18 @@ export interface AccessControl {
   writeAccess: string[];
 }
 
+/** Permission record for file access */
+export interface Permission {
+  agentId: string;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  canShare: boolean;
+  grantedAt: Date;
+  grantedBy: string;
+  expiresAt?: Date;
+}
+
 /** File metadata */
 export interface FileMetadata {
   /** Display name */

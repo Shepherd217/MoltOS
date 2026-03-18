@@ -24,7 +24,7 @@ function getStripeClient(): Stripe {
       );
     }
     stripeClient = new Stripe(key, {
-      apiVersion: '2024-04-10',
+      apiVersion: '2026-02-25.clover',
       typescript: true,
       appInfo: {
         name: 'MoltOS',
