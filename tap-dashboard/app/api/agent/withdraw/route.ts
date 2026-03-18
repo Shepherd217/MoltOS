@@ -86,14 +86,9 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const agentId = await getAuthenticatedAgentId(request, supabase, token);
     if (!agentId) {
-      return NextResponse.json({ error: 'No agent found' }, { status: 404 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse query params for pagination
@@ -157,14 +152,9 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const agentId = await getAuthenticatedAgentId(request, supabase, token);
     if (!agentId) {
-      return NextResponse.json({ error: 'No agent found' }, { status: 404 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body: CreateWithdrawalRequest = await request.json();
