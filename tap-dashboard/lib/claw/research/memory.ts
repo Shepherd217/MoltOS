@@ -46,13 +46,13 @@ export class ResearchMemoryStore {
       id: job.id,
       query: job.query,
       normalizedQuery,
-      findings: job.result?.keyFindings.map(f => ({
+      findings: job.result?.keyFindings?.map((f: any) => ({
         statement: f.statement,
         confidence: f.confidence,
         sources: f.sources,
         category: f.category,
       })) || [],
-      citations: job.result?.citations.map(c => ({
+      citations: job.result?.citations?.map((c: any) => ({
         url: c.url,
         title: c.title,
         credibility: c.credibilityScore,
@@ -62,7 +62,7 @@ export class ResearchMemoryStore {
       lastAccessed: job.createdAt,
       tags: this.extractTags(job),
       relatedEntries: [],
-      agentId: job.metadata?.agentId,
+      agentId: job.metadata?.agentId as string | undefined,
     };
 
     this.entries.set(job.id, entry);
@@ -175,8 +175,8 @@ export class ResearchMemoryStore {
     
     const allFindings = new Set<string>();
     for (const entry of relatedEntries) {
-      for (const finding of entry.findings) {
-        allFindings.add(finding.statement.toLowerCase());
+      for (const finding of entry.findings as string[]) {
+        allFindings.add(finding.toLowerCase());
       }
     }
 
@@ -297,7 +297,9 @@ export class ResearchMemoryStore {
     }
 
     // Add depth as tag
-    tags.add(job.depth);
+    if (job.depth !== undefined) {
+      tags.add(String(job.depth));
+    }
 
     return [...tags];
   }
@@ -375,6 +377,9 @@ export class ResearchMemoryStore {
       id: entry.id,
       query: entry.query,
       findings: entry.findings.map(f => f.statement),
+      sources: [],
+      createdAt: entry.timestamp,
+      updatedAt: entry.lastAccessed,
       timestamp: entry.timestamp,
       accessCount: entry.accessCount,
       relatedQueries: entry.relatedEntries

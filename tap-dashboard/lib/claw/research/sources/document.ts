@@ -19,7 +19,8 @@ interface ProcessedDocument {
 const documentStore: Map<string, ProcessedDocument> = new Map();
 
 export class DocumentAdapter implements SourceAdapter {
-  name: SourceType = 'document';
+  name = 'Document';
+  type: SourceType = 'document';
 
   async search(query: string, options: ResearchOptions): Promise<RawSource[]> {
     const queryLower = query.toLowerCase();
@@ -33,7 +34,11 @@ export class DocumentAdapter implements SourceAdapter {
     }
 
     return results
-      .sort((a, b) => (b.metadata?.relevance || 0) - (a.metadata?.relevance || 0))
+      .sort((a, b) => {
+        const relA = (a.metadata?.relevance as number) || 0;
+        const relB = (b.metadata?.relevance as number) || 0;
+        return relB - relA;
+      })
       .slice(0, options.maxSources || 10);
   }
 

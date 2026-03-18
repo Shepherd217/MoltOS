@@ -34,7 +34,8 @@ export class BraveSearchAdapter implements SourceAdapter {
         month: 'pm',
         year: 'py',
       };
-      params.append('freshness', freshnessMap[options.timeRange] || '');
+      const timeRangeStr = typeof options.timeRange === 'string' ? options.timeRange : 'month';
+      params.append('freshness', freshnessMap[timeRangeStr] || '');
     }
 
     const response = await fetch(`${BRAVE_API_URL}?${params}`, {
@@ -53,16 +54,19 @@ export class BraveSearchAdapter implements SourceAdapter {
 
     for (const result of data.web?.results || []) {
       // Skip excluded domains
-      if (options.excludeDomains?.some(d => result.url.includes(d))) {
+      if (options.excludeDomains?.some((d: string) => result.url.includes(d))) {
         continue;
       }
 
       // Filter by domain if specified
-      if (options.domains && options.domains.length > 0 && !options.domains.some(d => result.url.includes(d))) {
+      if (options.domains && options.domains.length > 0 && !options.domains.some((d: string) => result.url.includes(d))) {
         continue;
       }
 
       results.push({
+        id: result.url,
+        sourceType: 'web' as const,
+        retrievedAt: new Date(),
         type: 'web',
         url: result.url,
         title: result.title,
@@ -83,8 +87,11 @@ export class BraveSearchAdapter implements SourceAdapter {
     try {
       const response = await fetch(`http://localhost:3000/api/fetch?url=${encodeURIComponent(url)}`);
       const data = await response.json();
-      
+
       return {
+        id: url,
+        sourceType: 'web' as const,
+        retrievedAt: new Date(),
         type: 'web',
         url,
         title: data.title || url,
@@ -95,12 +102,17 @@ export class BraveSearchAdapter implements SourceAdapter {
       };
     } catch (error) {
       return {
+        id: url,
+        sourceType: 'web' as const,
+        retrievedAt: new Date(),
         type: 'web',
         url,
         title: url,
         content: '',
         metadata: { error: String(error) },
       };
+    }
+  }
     }
   }
 
