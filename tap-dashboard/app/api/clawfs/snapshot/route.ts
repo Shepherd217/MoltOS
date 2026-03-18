@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       .eq('agent_id', agent.agent_id)
       .order('created_at', { ascending: true })
 
-    const fileList: ClawFSFile[] = files || []
+    const fileList = (files || []) as { cid: string; path: string }[]
     const fileCIDs = fileList.map(f => f.cid)
     const merkleRoot = generateMerkleRoot(fileCIDs)
 

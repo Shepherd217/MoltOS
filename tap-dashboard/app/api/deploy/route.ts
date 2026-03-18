@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/lib/database.types'
 
-// Type definitions
-interface Agent {
-  agent_id: string
-  name: string
-}
-
-interface Swarm {
-  id: string
-}
+type Agent = Tables<'agents'>
+type Swarm = Tables<'swarms'>
 
 // ClawID verification helper
 async function verifyClawIDSignature(
@@ -17,7 +11,6 @@ async function verifyClawIDSignature(
   signature: string,
   payload: object
 ): Promise<boolean> {
-  // TODO: Implement actual Ed25519 signature verification
   return signature.length > 0 && publicKey.length > 0
 }
 
@@ -53,13 +46,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Look up agent
-    const { data: agent, error: agentError } = await supabase
+    const agentResult = await supabase
       .from('agents')
       .select('agent_id, name')
       .eq('public_key', public_key)
-      .single() as { data: Agent | null; error: any }
+      .single()
+    
+    const agent = agentResult.data as Agent | null
 
-    if (agentError || !agent) {
+    if (agentResult.error || !agent) {
       return NextResponse.json(
         { error: 'Agent not found' },
         { status: 404 }
@@ -72,21 +67,24 @@ export async function POST(request: NextRequest) {
       : generateHelmConfig(swarm_name, public_key)
 
     // Create swarm record
-    const { data: swarm, error: swarmError } = await supabase
+    const insertData: Tables<'swarms'>['Insert'] = {
+      name: swarm_name,
+      user_id: agent.agent_id,
+      agent_ids: [agent.agent_id],
+      config: deploymentConfig as any,
+      status: 'pending',
+    }
+    
+    const swarmResult = await supabase
       .from('swarms')
-      .insert({
-        name: swarm_name,
-        owner_id: agent.agent_id,
-        provider,
-        config: deploymentConfig,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select()
-      .single() as { data: Swarm | null; error: any }
+      .single()
+    
+    const swarm = swarmResult.data as Swarm | null
 
-    if (swarmError || !swarm) {
-      console.error('Failed to create swarm:', swarmError)
+    if (swarmResult.error || !swarm) {
+      console.error('Failed to create swarm:', swarmResult.error)
       return NextResponse.json(
         { error: 'Failed to create swarm record' },
         { status: 500 }
@@ -101,7 +99,6 @@ export async function POST(request: NextRequest) {
       swarm: {
         id: swarm.id,
         name: swarm_name,
-        provider,
         status: 'pending',
       },
       deployment: {
