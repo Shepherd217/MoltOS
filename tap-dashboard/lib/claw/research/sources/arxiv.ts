@@ -71,8 +71,9 @@ export class ArxivAdapter implements SourceAdapter {
     let score = 75;
 
     // Boost for citations if available
-    if (source.metadata?.citationCount) {
-      score += Math.min(15, source.metadata.citationCount / 10);
+    const citationCount = source.metadata?.citationCount as number | undefined;
+    if (citationCount && typeof citationCount === 'number') {
+      score += Math.min(15, citationCount / 10);
     }
 
     // Boost for published date (newer research)
@@ -101,7 +102,15 @@ export class ArxivAdapter implements SourceAdapter {
     return match ? match[1] : null;
   }
 
-  private getDateFilter(timeRange: string): string {
+  private getDateFilter(timeRange: string | { start?: Date; end?: Date }): string {
+    // Handle object type
+    if (typeof timeRange !== 'string') {
+      if (timeRange.start) {
+        return ` AND submittedDate:[${timeRange.start.toISOString().split('T')[0]} TO *]`;
+      }
+      return '';
+    }
+
     const now = new Date();
     let filterDate: Date;
 
@@ -153,6 +162,9 @@ export class ArxivAdapter implements SourceAdapter {
         .filter(Boolean);
 
       results.push({
+        id,
+        sourceType: 'arxiv' as const,
+        retrievedAt: new Date(),
         type: 'arxiv',
         url: id.replace('http://arxiv.org/abs/', 'https://arxiv.org/abs/'),
         title: title.replace(/\n/g, ' ').trim(),

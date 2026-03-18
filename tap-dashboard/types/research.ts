@@ -51,9 +51,9 @@ export interface FactCheckResult {
   findings: Finding[];
   contradictions: Contradiction[];
   sources: RawSource[];
-  supportingSources?: RawSource[];
-  opposingSources?: RawSource[];
-  contradictingSources?: RawSource[];
+  supportingSources?: RawSource[] | string[];
+  opposingSources?: RawSource[] | string[];
+  contradictingSources?: RawSource[] | string[];
   explanation?: string;
 }
 
@@ -92,6 +92,8 @@ export interface ResearchOptions {
   depth?: number;
   timeRange?: { start?: Date; end?: Date } | 'all';
   language?: string;
+  excludeDomains?: string[];
+  domains?: string[];
 }
 
 export type SourceType = 

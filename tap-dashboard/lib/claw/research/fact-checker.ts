@@ -51,6 +51,9 @@ export class FactChecker {
         claim,
         verified: false,
         confidence: 0,
+        findings: [],
+        contradictions: [],
+        sources: [],
         supportingSources: [],
         contradictingSources: [],
         explanation: 'Insufficient evidence found to verify claim',
@@ -96,8 +99,11 @@ export class FactChecker {
       claim,
       verified,
       confidence: Math.round(confidence),
-      supportingSources: supporting.map(s => s.url),
-      contradictingSources: contradicting.map(s => s.url),
+      findings: [],
+      contradictions: [],
+      sources: [],
+      supportingSources: supporting.map(s => s.url!),
+      contradictingSources: contradicting.map(s => s.url!),
       explanation,
     };
   }
@@ -113,7 +119,7 @@ export class FactChecker {
         const a = findings[i];
         const b = findings[j];
 
-        const conflict = this.detectConflict(a.statement, b.statement);
+        const conflict = this.detectConflict(a.statement || '', b.statement || '');
         if (conflict.hasConflict) {
           contradictions.push({
             id: `contradiction_${i}_${j}`,
@@ -158,11 +164,11 @@ export class FactChecker {
       let hasConflict = false;
 
       for (const knowledge of relatedKnowledge) {
-        const similarity = this.textSimilarity(finding.statement, knowledge);
+        const similarity = this.textSimilarity(finding.statement || '', knowledge || '');
         if (similarity > 0.8) {
           hasConfirmation = true;
         } else if (similarity > 0.3) {
-          const conflict = this.detectConflict(finding.statement, knowledge);
+          const conflict = this.detectConflict(finding.statement || '', knowledge || '');
           if (conflict.hasConflict) {
             hasConflict = true;
           }
@@ -330,7 +336,10 @@ export class FactChecker {
 
   private avgCredibility(sources: RawSource[]): number {
     if (sources.length === 0) return 50;
-    const sum = sources.reduce((acc, s) => acc + (s.metadata?.credibility || 50), 0);
+    const sum = sources.reduce((acc, s) => {
+      const credibility = s.metadata?.credibility as number | undefined;
+      return acc + (typeof credibility === 'number' ? credibility : 50);
+    }, 0);
     return sum / sources.length;
   }
 
@@ -339,7 +348,7 @@ export class FactChecker {
     knowledgeBase: Map<string, string>
   ): string[] {
     const related: string[] = [];
-    const findingTerms = new Set(this.extractKeyTerms(finding.statement));
+    const findingTerms = new Set(this.extractKeyTerms(finding.statement || ''));
 
     for (const [, knowledge] of knowledgeBase) {
       const knowledgeTerms = new Set(this.extractKeyTerms(knowledge));
