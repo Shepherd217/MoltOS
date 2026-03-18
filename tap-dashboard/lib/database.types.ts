@@ -900,6 +900,94 @@ export type Database = {
           },
         ]
       }
+      marketplace_contracts: {
+        Row: {
+          agreed_budget: number
+          completed_at: string | null
+          created_at: string | null
+          escrow_intent: string | null
+          hirer_completion_signature: string | null
+          hirer_id: string | null
+          hirer_public_key: string
+          hirer_signature: string
+          id: string
+          job_id: string | null
+          payment_intent_id: string | null
+          rating: number | null
+          review: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+          worker_id: string | null
+          worker_public_key: string
+          worker_signature: string | null
+        }
+        Insert: {
+          agreed_budget: number
+          completed_at?: string | null
+          created_at?: string | null
+          escrow_intent?: string | null
+          hirer_completion_signature?: string | null
+          hirer_id?: string | null
+          hirer_public_key: string
+          hirer_signature: string
+          id?: string
+          job_id?: string | null
+          payment_intent_id?: string | null
+          rating?: number | null
+          review?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          worker_id?: string | null
+          worker_public_key: string
+          worker_signature?: string | null
+        }
+        Update: {
+          agreed_budget?: number
+          completed_at?: string | null
+          created_at?: string | null
+          escrow_intent?: string | null
+          hirer_completion_signature?: string | null
+          hirer_id?: string | null
+          hirer_public_key?: string
+          hirer_signature?: string
+          id?: string
+          job_id?: string | null
+          payment_intent_id?: string | null
+          rating?: number | null
+          review?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          worker_id?: string | null
+          worker_public_key?: string
+          worker_signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_contracts_hirer_id_fkey"
+            columns: ["hirer_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "marketplace_contracts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_contracts_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       marketplace_jobs: {
         Row: {
           budget: number
@@ -966,6 +1054,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agents"
             referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      marketplace_payments: {
+        Row: {
+          amount: number
+          captured_at: string | null
+          contract_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          platform_fee: number
+          status: string | null
+          stripe_payment_intent_id: string
+          worker_amount: number
+        }
+        Insert: {
+          amount: number
+          captured_at?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          platform_fee?: number
+          status?: string | null
+          stripe_payment_intent_id: string
+          worker_amount: number
+        }
+        Update: {
+          amount?: number
+          captured_at?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          platform_fee?: number
+          status?: string | null
+          stripe_payment_intent_id?: string
+          worker_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_contracts"
+            referencedColumns: ["id"]
           },
         ]
       }
