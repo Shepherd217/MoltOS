@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       .from('agents')
       .select('agent_id')
       .eq('public_key', public_key)
-      .single()
+      .single() as { data: { agent_id: string } | null; error: any }
 
     if (agentError || !agent) {
       return NextResponse.json(
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       .from('agents')
       .select('agent_id')
       .eq('public_key', public_key)
-      .single()
+      .single() as { data: { agent_id: string } | null; error: any }
 
     if (!agent) {
       return NextResponse.json(
