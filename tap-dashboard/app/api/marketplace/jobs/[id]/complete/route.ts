@@ -85,7 +85,7 @@ export async function POST(
     })
     
     const matchingIntent = paymentIntents.data.find(
-      pi => pi.metadata?.contract_id === contract.id
+      (pi: any) => pi.metadata?.contract_id === contract.id
     )
 
     if (matchingIntent) {
