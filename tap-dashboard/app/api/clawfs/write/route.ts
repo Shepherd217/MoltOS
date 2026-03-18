@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/lib/database.types'
 
-// Type definitions
-interface Agent {
-  agent_id: string
-}
-
-interface ClawFSFile {
-  id: string
-  path: string
-  cid: string
-  size_bytes: number
-  created_at: string
-}
+type Agent = Tables<'agents'>
+type ClawFSFile = Tables<'clawfs_files'>
 
 // ClawID verification helper
 async function verifyClawIDSignature(
@@ -107,7 +98,7 @@ export async function POST(request: NextRequest) {
         path: file.path,
         cid: file.cid,
         size_bytes: file.size_bytes,
-        created_at: file.created_at,
+        created_at: file.created_at ?? new Date().toISOString(),
       },
       merkle_root: generateMerkleRoot(cid, public_key),
     })

@@ -1,41 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/lib/database.types'
 
-// Type definitions
-interface Proposal {
-  id: string
-  title: string
-  description: string
-  parameter: string | null
-  new_value: string | null
-  evidence_cid: string | null
-  status: string
-  ends_at: string
-  created_at: string
-  proposer_id: string
-  proposer_public_key: string
-  proposer_signature: string
-  proposer?: {
-    agent_id: string
-    name: string
-    reputation: number
-    tier: string
-  }
-}
-
-interface Vote {
-  vote_type: 'yes' | 'no'
-  voter: {
-    reputation: number
-  } | null
-}
-
-interface Agent {
-  agent_id: string
-  name: string
-  reputation: number
-  tier: string
-}
+type Proposal = Tables<'governance_proposals'>
+type Agent = Tables<'agents'>
 
 // ClawID verification helper
 async function verifyClawIDSignature(
@@ -43,7 +11,6 @@ async function verifyClawIDSignature(
   signature: string,
   payload: object
 ): Promise<boolean> {
-  // TODO: Implement actual Ed25519 signature verification
   return signature.length > 0 && publicKey.length > 0
 }
 
@@ -62,11 +29,10 @@ export async function GET(request: NextRequest) {
       .eq('status', status)
       .order('created_at', { ascending: false })
     
-    const proposals: Proposal[] = result.data || []
-    const error = result.error
+    const proposals = (result.data || []) as (Proposal & { proposer: { agent_id: string; name: string | null; reputation: number | null; tier: string | null } | null })[]
     
-    if (error) {
-      console.error('Failed to fetch proposals:', error)
+    if (result.error) {
+      console.error('Failed to fetch proposals:', result.error)
       return NextResponse.json(
         { error: 'Failed to fetch proposals' },
         { status: 500 }
@@ -81,7 +47,7 @@ export async function GET(request: NextRequest) {
           .select('vote_type, voter: voter_id(reputation)')
           .eq('proposal_id', p.id)
         
-        const votes: Vote[] = voteResult.data || []
+        const votes = (voteResult.data || []) as { vote_type: string; voter: { reputation: number | null } | null }[]
         
         const yesVotes = votes.filter(v => v.vote_type === 'yes').reduce((s, v) => s + (v.voter?.reputation || 0), 0)
         const noVotes = votes.filter(v => v.vote_type === 'no').reduce((s, v) => s + (v.voter?.reputation || 0), 0)
@@ -130,7 +96,6 @@ export async function POST(request: NextRequest) {
       parameter,
       new_value,
       evidence_cid,
-      // ClawID auth
       proposer_public_key,
       proposer_signature,
       timestamp,
@@ -161,10 +126,9 @@ export async function POST(request: NextRequest) {
       .eq('public_key', proposer_public_key)
       .single()
     
-    const proposer: Agent | null = proposerResult.data
-    const proposerError = proposerResult.error
+    const proposer = proposerResult.data as Agent | null
     
-    if (proposerError || !proposer) {
+    if (proposerResult.error || !proposer) {
       return NextResponse.json(
         { error: 'Proposer agent not found' },
         { status: 404 }
@@ -172,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check TAP requirement (≥ 70 to propose)
-    if (proposer.reputation < 70) {
+    if ((proposer.reputation || 0) < 70) {
       return NextResponse.json(
         { error: 'Insufficient TAP score to create proposal (minimum 70)' },
         { status: 403 }
@@ -184,29 +148,29 @@ export async function POST(request: NextRequest) {
     const endsAt = new Date(Date.now() + baseWindow).toISOString()
     
     // Create proposal
+    const insertData: Tables<'governance_proposals'>['Insert'] = {
+      title,
+      description,
+      parameter: parameter || null,
+      new_value: new_value || null,
+      evidence_cid: evidence_cid || null,
+      proposer_id: proposer.agent_id,
+      proposer_public_key,
+      proposer_signature,
+      status: 'active',
+      ends_at: endsAt,
+    }
+    
     const proposalResult = await supabase
       .from('governance_proposals')
-      .insert({
-        title,
-        description,
-        parameter: parameter || null,
-        new_value: new_value || null,
-        evidence_cid: evidence_cid || null,
-        proposer_id: proposer.agent_id,
-        proposer_public_key,
-        proposer_signature,
-        status: 'active',
-        ends_at: endsAt,
-        created_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select()
       .single()
     
-    const proposal: Proposal | null = proposalResult.data
-    const error = proposalResult.error
+    const proposal = proposalResult.data as Proposal | null
     
-    if (error || !proposal) {
-      console.error('Failed to create proposal:', error)
+    if (proposalResult.error || !proposal) {
+      console.error('Failed to create proposal:', proposalResult.error)
       return NextResponse.json(
         { error: 'Failed to create proposal' },
         { status: 500 }
@@ -222,8 +186,8 @@ export async function POST(request: NextRequest) {
         ends_at: proposal.ends_at,
         proposer: {
           id: proposer.agent_id,
-          name: proposer.name,
-          reputation: proposer.reputation,
+          name: proposer.name || 'Unknown',
+          reputation: proposer.reputation || 0,
         },
       },
     })

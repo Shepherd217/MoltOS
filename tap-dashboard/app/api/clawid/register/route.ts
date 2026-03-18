@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/lib/database.types'
 
-// Type definition for Agent
-interface Agent {
-  agent_id: string
-  name: string
-  public_key: string
-  tier: string
-  reputation: number
-  status: string
-}
+type Agent = Tables<'agents'>
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +29,7 @@ export async function POST(request: NextRequest) {
         .from('agents')
         .select('*')
         .eq('public_key', publicKey)
-        .single() as { data: Agent | null; error: any }
+        .single()
       
       if (!agent) {
         return NextResponse.json(
@@ -49,11 +42,11 @@ export async function POST(request: NextRequest) {
         success: true,
         agent: {
           agent_id: agent.agent_id,
-          name: agent.name,
+          name: agent.name ?? `Agent ${agentId.slice(0, 8)}`,
           public_key: agent.public_key,
-          tier: agent.tier,
-          reputation: agent.reputation,
-          status: agent.status,
+          tier: agent.tier ?? 'Bronze',
+          reputation: agent.reputation ?? 0,
+          status: agent.status ?? 'active',
         },
       })
     }
@@ -61,18 +54,21 @@ export async function POST(request: NextRequest) {
     // Create new agent with ClawID
     const name = `Agent ${agentId.slice(0, 8)}`
     
+    const insertData: Tables<'agents'>['Insert'] = {
+      agent_id: agentId,
+      public_key: publicKey,
+      boot_audit_hash: 'pending', // Required field
+      name,
+      tier: 'Bronze',
+      reputation: 0,
+      status: 'active',
+    }
+    
     const { data: agent, error } = await supabase
       .from('agents')
-      .insert({
-        agent_id: agentId,
-        name,
-        public_key: publicKey,
-        tier: 'Bronze',
-        reputation: 0,
-        status: 'active',
-      })
+      .insert(insertData)
       .select()
-      .single() as { data: Agent | null; error: any }
+      .single()
     
     if (error || !agent) {
       console.error('Failed to create agent:', error)
@@ -86,11 +82,11 @@ export async function POST(request: NextRequest) {
       success: true,
       agent: {
         agent_id: agent.agent_id,
-        name: agent.name,
+        name: agent.name ?? name,
         public_key: agent.public_key,
-        tier: agent.tier,
-        reputation: agent.reputation,
-        status: agent.status,
+        tier: agent.tier ?? 'Bronze',
+        reputation: agent.reputation ?? 0,
+        status: agent.status ?? 'active',
       },
     })
   } catch (error) {

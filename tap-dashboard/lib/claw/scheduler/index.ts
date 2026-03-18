@@ -4,7 +4,7 @@
  */
 
 import { getSupabaseClient } from '@/lib/supabase';
-import type { Database, WorkflowRow, WorkflowExecutionRow, AgentTaskRow } from '@/lib/database.types';
+import type { Database } from '@/lib/database.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Workflow,
@@ -41,10 +41,17 @@ type Tables = Database['public']['Tables'];
 // Types for Database Schema (local mapping types)
 // ============================================================================
 
-interface LocalWorkflowRow extends WorkflowRow {}
+interface LocalWorkflowRow extends Tables['claw_workflows']['Row'] {
+  definition: WorkflowDefinition;
+  nodes?: WorkflowNode[];
+  edges?: WorkflowEdge[];
+  end_node_ids?: string[];
+  default_retry_policy?: RetryPolicy;
+}
 
-interface LocalExecutionRow extends WorkflowExecutionRow {
+interface LocalExecutionRow extends Tables['claw_workflow_executions']['Row'] {
   circuit_breaker_state: Record<string, CircuitBreakerState>;
+  workflow: LocalWorkflowRow;
 }
 
 interface ListWorkflowsFilters {
