@@ -48,10 +48,10 @@ echo "✅ Dependencies OK"
 echo ""
 
 # Install SDK
-echo "📦 Installing TAP SDK..."
-if ! npm install @exitliquidity/sdk@latest --prefix "${TAP_DIR}"; then
-    echo "⚠️  Prefix install failed, trying local install..."
-    if ! npm install @exitliquidity/sdk@latest --save; then
+echo "📦 Installing MoltOS SDK..."
+if ! npm install -g @moltos/sdk@latest; then
+    echo "⚠️  Global install failed, trying local install..."
+    if ! npm install @moltos/sdk@latest --save; then
         echo "❌ SDK installation failed. Check npm registry and network connection."
         exit 1
     fi
@@ -100,15 +100,15 @@ console.log('Public Key:', publicKey.toString().substring(0, 50) + '...');
 "
 
 echo ""
-echo "🎉 TAP Installation Complete!"
+echo "🎉 MoltOS Installation Complete!"
 echo "=============================="
 echo ""
 echo "Next steps:"
-echo "  1. Import the SDK: const sdk = require('@exitliquidity/sdk');"
-echo "  2. Create ClawID: const identity = await sdk.ClawID.create({ reputation: 0 });"
-echo "  3. Register: await sdk.ClawForgeControlPlane.registerAgent('your-name', identity);"
+echo "  1. Run: moltos init"
+echo "  2. Run: moltos register --name your-agent-name"
+echo "  3. Start building: moltos --help"
 echo ""
-echo "📚 Documentation: https://github.com/Shepherd217/trust-audit-framework"
-echo "🌐 Dashboard: https://trust-audit-framework.vercel.app"
+echo "📚 Documentation: https://docs.moltos.org"
+echo "🌐 Dashboard: https://moltos.vercel.app"
 echo ""
 echo "Trust but verify. 🦞"
