@@ -47,11 +47,9 @@ interface Attestation {
  * Agent data structure
  */
 interface Agent {
-  claw_id: string;
+  agent_id: string;
   name: string;
-  tap_score: number;
-  total_attestations_received: number;
-  total_attestations_given: number;
+  reputation: number;
 }
 
 /**
@@ -222,8 +220,9 @@ async function fetchAttestations(timeWindowDays: number = 0): Promise<Attestatio
  */
 async function fetchAgents(): Promise<Agent[]> {
   const { data, error } = await getSupabase()
-    .from('tap_scores')
-    .select('claw_id, name, tap_score, total_attestations_received, total_attestations_given');
+    .from('agent_registry')
+    .select('agent_id, name, reputation')
+    .eq('activation_status', 'active');
 
   if (error) {
     throw new Error(`Failed to fetch agents: ${error.message}`);
@@ -277,7 +276,7 @@ function buildWeightedTrustMatrix(
   config: EigenTrustConfig,
   wotConfig: WoTConfig
 ): Map<string, Map<string, number>> {
-  const agentIds = new Set(agents.map(a => a.claw_id));
+  const agentIds = new Set(agents.map(a => a.agent_id));
   const trustMatrix = new Map<string, Map<string, number>>();
   
   // Initialize matrix with zeros
@@ -469,11 +468,11 @@ function getTierFromScore(score: number): string {
  * Update TAP scores in the database
  */
 async function updateTAPScores(scores: Map<string, number>): Promise<void> {
-  const updates: { claw_id: string; tap_score: number; tier: string; last_calculated_at: string; }[] = [];
+  const updates: { agent_id: string; tap_score: number; tier: string; last_calculated_at: string; }[] = [];
   
-  Array.from(scores.entries()).forEach(([clawId, score]) => {
+  Array.from(scores.entries()).forEach(([agentId, score]) => {
     updates.push({
-      claw_id: clawId,
+      agent_id: agentId,
       tap_score: score,
       tier: getTierFromScore(score),
       last_calculated_at: new Date().toISOString(),
@@ -482,7 +481,7 @@ async function updateTAPScores(scores: Map<string, number>): Promise<void> {
 
   const { error } = await getSupabase()
     .from('tap_scores')
-    .upsert(updates as any, { onConflict: 'claw_id' });
+    .upsert(updates as any, { onConflict: 'agent_id' });
 
   if (error) {
     throw new Error(`Failed to update TAP scores: ${error.message}`);
@@ -536,7 +535,7 @@ export async function runEigenTrustCalculation(
 
     // Calculate EigenTrust
     console.log('Running power iteration...');
-    const agentIds = agents.map(a => a.claw_id);
+    const agentIds = agents.map(a => a.agent_id);
     const result = await calculateEigenTrust(trustMatrix, agentIds, config);
 
     console.log(`Converged after ${result.iterations} iterations (delta: ${result.convergenceDelta.toExponential(2)})`);
@@ -563,7 +562,7 @@ export async function runEigenTrustCalculation(
 /**
  * Get current trust scores for an agent
  */
-export async function getAgentTrustScore(clawId: string): Promise<{
+export async function getAgentTrustScore(agentId: string): Promise<{
   score: number;
   tier: string;
   percentile: number;
@@ -571,7 +570,7 @@ export async function getAgentTrustScore(clawId: string): Promise<{
   const { data, error } = await getSupabase()
     .from('tap_scores')
     .select('tap_score, tier')
-    .eq('claw_id', clawId)
+    .eq('agent_id', agentId)
     .single();
 
   if (error || !data) {
@@ -637,14 +636,14 @@ export async function getTrustNetwork(
 
   const { data: agents } = await getSupabase()
     .from('tap_scores')
-    .select('claw_id, name, tap_score')
-    .in('claw_id', Array.from(nodeIds));
+    .select('agent_id, name, tap_score')
+    .in('agent_id', Array.from(nodeIds));
 
-  const typedAgents = (agents || []) as Array<{ claw_id: string; name: string | null; tap_score: number }>;
+  const typedAgents = (agents || []) as Array<{ agent_id: string; name: string | null; tap_score: number }>;
 
   const nodes = typedAgents.map(a => ({
-    id: a.claw_id,
-    name: a.name || a.claw_id.slice(0, 8),
+    id: a.agent_id,
+    name: a.name || a.agent_id.slice(0, 8),
     score: a.tap_score,
   }));
 
