@@ -19,10 +19,17 @@ function truncateKey(key: string) {
   return `${key.slice(0, 12)}...${key.slice(-8)}`
 }
 
-export default async function AgentProfilePage({ params }: { params: { id: string } }) {
+// Next.js 15: params is now a Promise
+export default async function AgentProfilePage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
+  const { id } = await params
+  
   let agent
   try {
-    agent = await getAgent(params.id)
+    agent = await getAgent(id)
   } catch {
     notFound()
   }
