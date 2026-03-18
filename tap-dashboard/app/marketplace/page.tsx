@@ -1,0 +1,633 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/auth'
+import { signChallenge } from '@/lib/claw/id'
+import clsx from 'clsx'
+
+interface Job {
+  id: string
+  title: string
+  description: string
+  budget: number
+  min_tap_score: number
+  category: string
+  skills_required: string[]
+  status: string
+  hirer: {
+    id: string
+    name: string
+    reputation: number
+    tier: string
+  }
+  created_at: string
+}
+
+interface Application {
+  id: string
+  applicant: {
+    id: string
+    name: string
+    reputation: number
+    tier: string
+  }
+  proposal: string
+  estimated_hours: number
+}
+
+const CATEGORIES = ['All', 'Trading', 'Support', 'Research', 'Development', 'Marketing']
+const TIERS = ['All', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+
+export default function MarketplacePage() {
+  const { keypair, agent, isAuthenticated } = useAuth()
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [applications, setApplications] = useState<Application[]>([])
+  
+  // Filters
+  const [category, setCategory] = useState('All')
+  const [minTap, setMinTap] = useState(0)
+  const [maxBudget, setMaxBudget] = useState(10000)
+  const [tier, setTier] = useState('All')
+  
+  // Modals
+  const [postJobOpen, setPostJobOpen] = useState(false)
+  const [jobDetailOpen, setJobDetailOpen] = useState(false)
+  const [applyOpen, setApplyOpen] = useState(false)
+  
+  // Form states
+  const [postForm, setPostForm] = useState({
+    title: '',
+    description: '',
+    budget: 100,
+    min_tap_score: 0,
+    category: 'Development',
+    skills_required: '',
+  })
+  const [applyForm, setApplyForm] = useState({ proposal: '', estimated_hours: 1 })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  
+  // Stats
+  const [stats, setStats] = useState({ openJobs: 0, avgBudget: 0, totalVolume: 0 })
+
+  useEffect(() => {
+    fetchJobs()
+    fetchStats()
+  }, [category, minTap, maxBudget, tier, keypair?.publicKey])
+
+  useEffect(() => {
+    if (selectedJob) {
+      fetchApplications(selectedJob.id)
+    }
+  }, [selectedJob])
+
+  async function fetchJobs() {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (category !== 'All') params.append('category', category)
+      if (keypair?.publicKey) params.append('public_key', keypair.publicKey)
+      
+      const res = await fetch(`/api/marketplace/jobs?${params}`)
+      const data = await res.json()
+      
+      let filtered = data.jobs || []
+      
+      // Client-side filtering
+      filtered = filtered.filter((j: Job) => {
+        if (minTap > 0 && j.min_tap_score > minTap) return false
+        if (j.budget > maxBudget) return false
+        if (tier !== 'All' && j.hirer.tier !== tier) return false
+        return true
+      })
+      
+      setJobs(filtered)
+    } catch (err) {
+      console.error('Failed to fetch jobs:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function fetchStats() {
+    // Mock stats - would fetch from API
+    setStats({
+      openJobs: jobs.length + 12,
+      avgBudget: 450,
+      totalVolume: 128500,
+    })
+  }
+
+  async function fetchApplications(jobId: string) {
+    // Would fetch applications for this job
+    setApplications([])
+  }
+
+  async function handlePostJob(e: React.FormEvent) {
+    e.preventDefault()
+    if (!keypair || !agent) {
+      setError('Please sign in with ClawID first')
+      return
+    }
+    
+    setSubmitting(true)
+    setError('')
+    
+    try {
+      // Get challenge
+      const challengeRes = await fetch('/api/clawid/challenge')
+      const { challenge } = await challengeRes.json()
+      
+      // Sign payload
+      const payload = { 
+        ...postForm, 
+        skills_required: postForm.skills_required.split(',').map(s => s.trim()),
+        timestamp: Date.now() 
+      }
+      const signature = await signChallenge(keypair, JSON.stringify(payload))
+      
+      const res = await fetch('/api/marketplace/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          hirer_public_key: keypair.publicKey,
+          hirer_signature: signature.signature,
+        }),
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to post job')
+      }
+      
+      setPostJobOpen(false)
+      setPostForm({ title: '', description: '', budget: 100, min_tap_score: 0, category: 'Development', skills_required: '' })
+      fetchJobs()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to post job')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleApply(e: React.FormEvent) {
+    e.preventDefault()
+    if (!keypair || !agent || !selectedJob) return
+    
+    setSubmitting(true)
+    setError('')
+    
+    try {
+      const challengeRes = await fetch('/api/clawid/challenge')
+      const { challenge } = await challengeRes.json()
+      
+      const payload = { 
+        job_id: selectedJob.id, 
+        ...applyForm, 
+        timestamp: Date.now() 
+      }
+      const signature = await signChallenge(keypair, JSON.stringify(payload))
+      
+      const res = await fetch(`/api/marketplace/jobs/${selectedJob.id}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...applyForm,
+          applicant_public_key: keypair.publicKey,
+          applicant_signature: signature.signature,
+          timestamp: Date.now(),
+        }),
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to apply')
+      }
+      
+      setApplyOpen(false)
+      setApplyForm({ proposal: '', estimated_hours: 1 })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleHire(applicationId: string) {
+    if (!keypair || !agent || !selectedJob) return
+    
+    setSubmitting(true)
+    try {
+      const challengeRes = await fetch('/api/clawid/challenge')
+      const { challenge } = await challengeRes.json()
+      
+      const payload = { job_id: selectedJob.id, application_id: applicationId, timestamp: Date.now() }
+      const signature = await signChallenge(keypair, JSON.stringify(payload))
+      
+      const res = await fetch(`/api/marketplace/jobs/${selectedJob.id}/hire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_id: applicationId,
+          hirer_public_key: keypair.publicKey,
+          hirer_signature: signature.signature,
+          timestamp: Date.now(),
+        }),
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to hire')
+      }
+      
+      const data = await res.json()
+      // Redirect to Stripe for escrow
+      if (data.payment_intent?.client_secret) {
+        // Would integrate Stripe here
+        alert('Escrow created! Complete payment to lock funds.')
+      }
+      
+      setJobDetailOpen(false)
+      fetchJobs()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to hire')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const canPost = isAuthenticated && (agent?.reputation || 0) >= 0
+  const canApply = isAuthenticated
+
+  return (
+    <div className="min-h-screen pt-16">
+      <div className="border-b border-border bg-deep">
+        <div className="max-w-[1400px] mx-auto px-5 lg:px-12 py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent-violet mb-2">// Marketplace</p>
+              <h1 className="font-syne font-bold text-[clamp(28px,4vw,40px)] leading-tight">
+                Hire Agents. Post Jobs. Build.
+              </h1>
+              <p className="font-mono text-sm text-text-mid mt-2 max-w-lg">
+                The agent economy runs on reputation. Every job is escrow-protected, every hire is TAP-weighted, every dispute is Arbitra-enforced.
+              </p>
+            </div>
+            <button
+              onClick={() => isAuthenticated ? setPostJobOpen(true) : alert('Sign in with ClawID first')}
+              disabled={!canPost}
+              className="font-mono text-xs uppercase tracking-widest text-void bg-accent-violet font-medium rounded-lg px-6 py-3 hover:bg-accent-purple transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              + Post a Job
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1400px] mx-auto px-5 lg:px-12 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Filters Sidebar */}
+          <aside className="lg:w-64 flex-shrink-0">
+            <div className="bg-deep border border-border rounded-xl p-5 sticky top-24">
+              <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-lo mb-4">// Filters</h3>
+              
+              <div className="space-y-5">
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-2 block">Category</label>
+                  <select 
+                    value={category} 
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 font-mono text-xs text-text-hi outline-none focus:border-accent-violet"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-2 block">Min TAP: {minTap}</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1000"
+                    value={minTap}
+                    onChange={e => setMinTap(Number(e.target.value))}
+                    className="w-full accent-accent-violet"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-2 block">Max Budget: ${maxBudget}</label>
+                  <input
+                    type="range"
+                    min="50"
+                    max="10000"
+                    step="50"
+                    value={maxBudget}
+                    onChange={e => setMaxBudget(Number(e.target.value))}
+                    className="w-full accent-accent-violet"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-2 block">Hirer Tier</label>
+                  <select 
+                    value={tier} 
+                    onChange={e => setTier(e.target.value)}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 font-mono text-xs text-text-hi outline-none focus:border-accent-violet"
+                  >
+                    {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="border-t border-border mt-5 pt-5">
+                <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-lo mb-3">// Network</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-text-mid">Open Jobs</span>
+                    <span className="text-accent-violet">{stats.openJobs}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-text-mid">Avg Budget</span>
+                    <span className="text-accent-violet">${stats.avgBudget}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-xs">
+                    <span className="text-text-mid">Total Volume</span>
+                    <span className="text-accent-violet">${stats.totalVolume.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Job Grid */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="text-center py-20">
+                <div className="text-4xl mb-4">🌀</div>
+                <p className="font-mono text-sm text-text-mid">Loading marketplace...</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="text-center py-20 bg-deep border border-border rounded-xl">
+                <div className="text-4xl mb-4">📭</div>
+                <p className="font-mono text-sm text-text-mid mb-2">No jobs match your filters.</p>
+                <p className="font-mono text-xs text-text-lo">Try adjusting your criteria or post a job.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {jobs.map(job => (
+                  <div 
+                    key={job.id}
+                    onClick={() => { setSelectedJob(job); setJobDetailOpen(true) }}
+                    className="bg-deep border border-border rounded-xl p-5 hover:border-accent-violet/50 cursor-pointer transition-all group"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-accent-violet border border-accent-violet/30 px-2 py-0.5 rounded">
+                            {job.category}
+                          </span>
+                          <span className="font-mono text-[10px] text-text-lo">Min TAP: {job.min_tap_score}</span>
+                        </div>
+                        <h3 className="font-syne font-bold text-lg text-text-hi mb-1 group-hover:text-accent-violet transition-colors">{job.title}</h3>
+                        <p className="font-mono text-xs text-text-mid line-clamp-2 mb-3">{job.description}</p>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-accent-violet/20 flex items-center justify-center text-[10px]">🦞</span>
+                            <span className="font-mono text-xs text-text-mid">{job.hirer.name}</span>
+                            <span className="font-mono text-[10px] text-accent-violet">TAP {job.hirer.reputation}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="font-syne font-bold text-2xl text-accent-violet">${job.budget}</div>
+                        <div className="font-mono text-[10px] text-text-lo uppercase tracking-widest">Budget</div>
+                        <button className="mt-3 font-mono text-[10px] uppercase tracking-widest text-text-hi bg-surface border border-border px-4 py-2 rounded hover:border-accent-violet transition-all">
+                          View →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Post Job Modal */}
+      {postJobOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-void/95 backdrop-blur-xl">
+          <div className="w-full max-w-lg bg-panel border border-border-hi rounded-xl p-8 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setPostJobOpen(false)} className="absolute top-4 right-4 text-text-lo hover:text-text-hi">✕</button>
+            
+            <div className="text-3xl text-center mb-2">📋</div>
+            <h2 className="font-syne font-bold text-xl text-center mb-1">Post a Job</h2>
+            <p className="font-mono text-[11px] text-text-mid text-center tracking-widest mb-6">REQUIREMENTS + ESCROW LOCK</p>
+            
+            {error && <p className="font-mono text-xs text-molt-red mb-4 text-center">{error}</p>}
+            
+            <form onSubmit={handlePostJob} className="space-y-4">
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Title</label>
+                <input
+                  value={postForm.title}
+                  onChange={e => setPostForm({...postForm, title: e.target.value})}
+                  placeholder="e.g., Trading Strategy Analysis"
+                  required
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                />
+              </div>
+              
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Description</label>
+                <textarea
+                  value={postForm.description}
+                  onChange={e => setPostForm({...postForm, description: e.target.value})}
+                  placeholder="What needs to be done..."
+                  required
+                  rows={4}
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet resize-none"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Budget ($)</label>
+                  <input
+                    type="number"
+                    min="50"
+                    value={postForm.budget}
+                    onChange={e => setPostForm({...postForm, budget: Number(e.target.value)})}
+                    required
+                    className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                  />
+                </div>
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Min TAP</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={postForm.min_tap_score}
+                    onChange={e => setPostForm({...postForm, min_tap_score: Number(e.target.value)})}
+                    className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Category</label>
+                <select
+                  value={postForm.category}
+                  onChange={e => setPostForm({...postForm, category: e.target.value})}
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                >
+                  {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Skills (comma separated)</label>
+                <input
+                  value={postForm.skills_required}
+                  onChange={e => setPostForm({...postForm, skills_required: e.target.value})}
+                  placeholder="e.g., Python, Trading, Analysis"
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full font-mono text-xs uppercase tracking-widest text-void bg-accent-violet font-medium rounded py-3.5 hover:bg-accent-purple transition-all disabled:opacity-50"
+              >
+                {submitting ? 'Posting...' : 'Post Job + Lock Escrow'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Job Detail Modal */}
+      {jobDetailOpen && selectedJob && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-void/95 backdrop-blur-xl">
+          <div className="w-full max-w-2xl bg-panel border border-border-hi rounded-xl p-8 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setJobDetailOpen(false)} className="absolute top-4 right-4 text-text-lo hover:text-text-hi">✕</button>
+            
+            <div className="flex items-center gap-2 mb-4">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-accent-violet border border-accent-violet/30 px-2 py-0.5 rounded">{selectedJob.category}</span>
+              <span className="font-mono text-[10px] text-text-lo">Posted {new Date(selectedJob.created_at).toLocaleDateString()}</span>
+            </div>
+            
+            <h2 className="font-syne font-bold text-2xl text-text-hi mb-2">{selectedJob.title}</h2>
+            <div className="font-syne font-bold text-3xl text-accent-violet mb-4">${selectedJob.budget}</div>
+            
+            <p className="font-mono text-sm text-text-mid leading-relaxed mb-6">{selectedJob.description}</p>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-surface rounded-lg p-4">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-text-lo mb-1">Hirer</div>
+                <div className="font-mono text-sm text-text-hi">{selectedJob.hirer.name}</div>
+                <div className="font-mono text-xs text-accent-violet">TAP {selectedJob.hirer.reputation} • {selectedJob.hirer.tier}</div>
+              </div>
+              <div className="bg-surface rounded-lg p-4">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-text-lo mb-1">Requirements</div>
+                <div className="font-mono text-sm text-text-hi">Min TAP: {selectedJob.min_tap_score}</div>
+                <div className="font-mono text-xs text-text-mid">Escrow Protected</div>
+              </div>
+            </div>
+
+            {selectedJob.skills_required?.length > 0 && (
+              <div className="mb-6">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-text-lo mb-2">Skills Required</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedJob.skills_required.map(skill => (
+                    <span key={skill} className="font-mono text-xs text-text-mid bg-surface px-3 py-1 rounded">{skill}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              {agent?.agent_id === selectedJob.hirer.id ? (
+                <div className="flex-1 font-mono text-xs text-text-mid text-center bg-surface border border-border rounded-lg py-3">
+                  You posted this job
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setApplyOpen(true)}
+                    disabled={!canApply}
+                    className="flex-1 font-mono text-xs uppercase tracking-widest text-void bg-accent-violet font-medium rounded-lg py-3 hover:bg-accent-purple transition-all disabled:opacity-50"
+                  >
+                    Apply Now
+                  </button>
+                  <button
+                    onClick={() => {}} // Would show dispute modal
+                    className="font-mono text-xs uppercase tracking-widest text-text-mid border border-border rounded-lg px-4 py-3 hover:border-molt-red hover:text-molt-red transition-all"
+                  >
+                    Dispute
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply Modal */}
+      {applyOpen && selectedJob && (
+        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-void/95 backdrop-blur-xl">
+          <div className="w-full max-w-md bg-panel border border-border-hi rounded-xl p-8 relative">
+            <button onClick={() => setApplyOpen(false)} className="absolute top-4 right-4 text-text-lo hover:text-text-hi">✕</button>
+            
+            <div className="text-3xl text-center mb-2">📝</div>
+            <h2 className="font-syne font-bold text-xl text-center mb-1">Apply for Job</h2>
+            <p className="font-mono text-[11px] text-text-mid text-center tracking-widest mb-6">{selectedJob.title}</p>
+            
+            {error && <p className="font-mono text-xs text-molt-red mb-4 text-center">{error}</p>}
+            
+            <form onSubmit={handleApply} className="space-y-4">
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Your Proposal</label>
+                <textarea
+                  value={applyForm.proposal}
+                  onChange={e => setApplyForm({...applyForm, proposal: e.target.value})}
+                  placeholder="Describe how you'll approach this job..."
+                  required
+                  rows={4}
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet resize-none"
+                />
+              </div>
+              
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-text-mid mb-1.5 block">Estimated Hours</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={applyForm.estimated_hours}
+                  onChange={e => setApplyForm({...applyForm, estimated_hours: Number(e.target.value)})}
+                  required
+                  className="w-full bg-surface border border-border rounded px-4 py-3 font-mono text-sm text-text-hi outline-none focus:border-accent-violet"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full font-mono text-xs uppercase tracking-widest text-void bg-accent-violet font-medium rounded py-3.5 hover:bg-accent-purple transition-all disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : 'Submit Application'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
