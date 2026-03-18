@@ -404,7 +404,6 @@ function mapRowToExecution(row: LocalExecutionRow): WorkflowExecution {
         } as CircuitBreakerState,
       ])
     ),
-    timeoutMs: row.timeout_ms,
   };
 }
 
