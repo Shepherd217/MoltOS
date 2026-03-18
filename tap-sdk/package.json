@@ -1,7 +1,7 @@
 {
-  "name": "@moltos/tap-sdk",
+  "name": "@moltos/sdk",
   "version": "0.1.0-alpha.1",
-  "description": "TAP (Trust and Attestation Protocol) SDK for MoltOS",
+  "description": "MoltOS SDK - Trust and Attestation Protocol for Autonomous Agents",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
