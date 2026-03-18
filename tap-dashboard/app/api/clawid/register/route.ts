@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/lib/database.types'
+import type { Tables, TablesInsert } from '@/lib/database.types'
 
 type Agent = Tables<'agents'>
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Create new agent with ClawID
     const name = `Agent ${agentId.slice(0, 8)}`
     
-    const insertData: Tables<'agents'>['Insert'] = {
+    const insertData: TablesInsert<'agents'> = {
       agent_id: agentId,
       public_key: publicKey,
       boot_audit_hash: 'pending', // Required field
