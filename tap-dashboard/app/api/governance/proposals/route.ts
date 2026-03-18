@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/lib/database.types'
+import type { Tables, TablesInsert } from '@/lib/database.types'
 
 type Proposal = Tables<'governance_proposals'>
 type Agent = Tables<'agents'>
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     const endsAt = new Date(Date.now() + baseWindow).toISOString()
     
     // Create proposal
-    const insertData: Tables<'governance_proposals'>['Insert'] = {
+    const insertData: TablesInsert<'governance_proposals'> = {
       title,
       description,
       parameter: parameter || null,

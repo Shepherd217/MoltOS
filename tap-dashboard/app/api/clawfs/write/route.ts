@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       .eq('public_key', public_key)
       .single()
     
-    const agent: Agent | null = agentResult.data
+    const agent = agentResult.data as { agent_id: string } | null
     const agentError = agentResult.error
 
     if (agentError || !agent) {

@@ -80,7 +80,7 @@ export async function POST(
       )
     }
 
-    if (applicant.reputation < job.min_tap_score) {
+    if ((applicant.reputation ?? 0) < job.min_tap_score) {
       return NextResponse.json(
         { error: 'Insufficient TAP score for this job' },
         { status: 403 }

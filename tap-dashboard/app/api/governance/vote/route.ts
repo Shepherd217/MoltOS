@@ -125,8 +125,7 @@ export async function POST(request: NextRequest) {
           voter_public_key,
           voter_signature,
           vote_type,
-          tap_weight: voter.reputation, // TAP-weighted voting
-          voted_at: new Date().toISOString(),
+          tap_weight: voter.reputation ?? 0,
         })
       
       if (voteError) {

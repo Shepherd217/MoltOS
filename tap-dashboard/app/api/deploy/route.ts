@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/lib/database.types'
+import type { Tables, TablesInsert } from '@/lib/database.types'
 
 type Agent = Tables<'agents'>
 type Swarm = Tables<'swarms'>
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       : generateHelmConfig(swarm_name, public_key)
 
     // Create swarm record
-    const insertData: Tables<'swarms'>['Insert'] = {
+    const insertData: TablesInsert<'swarms'> = {
       name: swarm_name,
       user_id: agent.agent_id,
       agent_ids: [agent.agent_id],
