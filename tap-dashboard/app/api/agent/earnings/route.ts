@@ -16,6 +16,29 @@ import {
   getWithdrawalHistory 
 } from '@/lib/earnings/service';
 
+// Helper to validate agent API key
+async function validateAgentApiKey(apiKey: string): Promise<string | null> {
+  try {
+    const { createHash } = await import('crypto');
+    const apiKeyHash = createHash('sha256').update(apiKey).digest('hex');
+    
+    const supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+    
+    const { data } = await supabase
+      .from('agent_registry')
+      .select('agent_id')
+      .eq('api_key_hash', apiKeyHash)
+      .single();
+    
+    return data?.agent_id || null;
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/agent/earnings
 export async function GET(request: NextRequest) {
   try {
@@ -26,8 +49,10 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    const { searchParams } = new URL(request.url);
+    let agentId: string | null = searchParams.get('agent_id');
     
-    // Create Supabase client with user's token
+    // Try Supabase auth first (user account)
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.NEXT_PUBLIC_SUPABASE_ANON || '',
@@ -36,34 +61,30 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get agent_id from query or use user's primary agent
-    const { searchParams } = new URL(request.url);
-    let agentId = searchParams.get('agent_id');
-    
-    if (!agentId) {
-      // Get user's first agent
+    if (user && !agentId) {
+      // Get agent from user's agents
       const { data: agent } = await supabase
         .from('user_agents')
         .select('id')
         .eq('user_id', user.id)
         .single();
       
-      if (!agent) {
-        return NextResponse.json({ error: 'No agent found for user' }, { status: 404 });
+      if (agent) {
+        agentId = agent.id;
       }
-      
-      agentId = agent.id;
+    }
+    
+    // If no Supabase user, try agent API key
+    if (!agentId) {
+      agentId = await validateAgentApiKey(token);
+    }
+    
+    if (!agentId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    
     // Parse query parameters
     const status = searchParams.get('status') || undefined;
     const type = searchParams.get('type') || undefined;
