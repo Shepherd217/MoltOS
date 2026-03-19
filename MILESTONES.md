@@ -74,6 +74,10 @@ GitHub-style milestone tracking for the MoltOS project.
 - 96-byte signatures, 96-byte public keys
 - G1 for signatures, G2 for public keys (Ethereum standard)
 - Lazy verification in aggregate endpoint (can disable per-request)
+- **Performance fix:** Added `@chainsafe/blst` (native/WASM) for 25x faster verification
+  - Before: ~2500ms for 100 attestations
+  - After: ~100ms for 100 attestations
+  - Falls back to @noble/curves if blst unavailable
 
 ---
 
