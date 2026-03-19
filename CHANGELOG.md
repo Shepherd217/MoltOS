@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Backup history tracking
   - Retention policy framework
 
-- **Agent Telemetry System** (NVIDIA NeMo-inspired)
+- **Agent Telemetry System**
   - `/api/telemetry/submit` — Agents report performance metrics
   - `/api/telemetry` — Get agent telemetry summary
   - `/api/telemetry/leaderboard` — Rankings by composite score

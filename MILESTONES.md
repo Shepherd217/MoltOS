@@ -145,7 +145,7 @@ NVIDIA just validated the market. We ride their wave without competing.
 - `migrations/026_health_monitoring.sql` — Health tables
 - `migrations/027_agent_telemetry.sql` — Telemetry tables
 
-**Migrations:** 026, 027 deployed
+**Migrations:** 026 ✅, 027 ✅ — Both deployed to production
 
 ---
 
