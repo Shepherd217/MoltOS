@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get agent status from user_agents table (not 'agents')
+    // Get agent status from agents table
     const agentResult = await supabase
       .from('agents')
-      .select('id, name, reputation_score, tier, status, created_at')
+      .select('agent_id, name, reputation, tier, status, created_at')
       .eq('public_key', publicKey)
       .single()
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const attestationsResult = await supabase
       .from('attestations')
       .select('*')
-      .eq('agent_id', agent.id)
+      .eq('agent_id', agent.agent_id)
       .order('created_at', { ascending: false })
       .limit(10)
 
@@ -45,9 +45,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       agent: {
-        id: agent.id,
+        id: agent.agent_id,
         name: agent.name,
-        tap_score: agent.reputation_score ?? 0,
+        tap_score: agent.reputation ?? 0,
         tier: agent.tier ?? 'Bronze',
         status: agent.status ?? 'active',
         joined_at: agent.created_at,
