@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+import { checkRateLimit, getClientIP, createRateLimitHeaders } from '@/lib/rate-limit';
 
 // Lazy initialization
 let supabase: ReturnType<typeof createClient> | null = null;
@@ -64,6 +65,20 @@ async function getWoTConfig() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - critical endpoint (affects reputation network)
+    const clientIP = getClientIP(request);
+    const rateLimit = await checkRateLimit('critical', `vouch:${clientIP}`);
+    
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Try again later.', code: 'RATE_LIMITED' },
+        { 
+          status: 429,
+          headers: createRateLimitHeaders(rateLimit)
+        }
+      );
+    }
+
     // Authenticate the voucher
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {

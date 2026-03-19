@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit, getClientIP, createRateLimitHeaders } from '@/lib/rate-limit';
 
 // Lazy initialization of Supabase client
 let supabase: ReturnType<typeof createClient> | null = null;
@@ -35,6 +36,20 @@ function getSupabase() {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - critical endpoint (affects reputation)
+    const clientIP = getClientIP(request);
+    const rateLimit = await checkRateLimit('critical', `dispute:${clientIP}`);
+    
+    if (!rateLimit.success) {
+      return NextResponse.json({
+        success: false,
+        error: 'Rate limit exceeded. Try again later.'
+      }, { 
+        status: 429,
+        headers: createRateLimitHeaders(rateLimit)
+      });
+    }
+
     const body = await request.json();
     const { 
       target_id, 
