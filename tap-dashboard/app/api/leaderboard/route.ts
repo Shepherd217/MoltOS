@@ -21,23 +21,25 @@ function getSupabase() {
 export async function GET() {
   try {
     const { data, error } = await getSupabase()
-      .from('waitlist')
-      .select('agent_id, referral_count, id')
-      .order('referral_count', { ascending: false })
+      .from('agents')
+      .select('agent_id, name, reputation, tier')
+      .order('reputation', { ascending: false })
       .limit(10);
 
     if (error) throw error;
 
-    // Calculate boosted positions
-    const withBoost = (data || []).map((item: any, index: number) => ({
+    // Format leaderboard data
+    const leaderboard = (data || []).map((item: any, index: number) => ({
       agent_id: item.agent_id,
-      referral_count: item.referral_count || 0,
+      name: item.name,
+      reputation: item.reputation || 0,
+      tier: item.tier || 'Bronze',
       position: index + 1,
-      boosted: Math.max(1, index + 1 - Math.floor((item.referral_count || 0) / 3) * 5)
     }));
 
-    return NextResponse.json(withBoost);
+    return NextResponse.json({ agents: leaderboard });
   } catch (error) {
-    return NextResponse.json([]);
+    console.error('Leaderboard error:', error);
+    return NextResponse.json({ agents: [] });
   }
 }
