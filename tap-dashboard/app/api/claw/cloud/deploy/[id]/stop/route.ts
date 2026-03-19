@@ -13,9 +13,6 @@ function getSupabase() {
   }
   return supabase;
 }
-// Old:
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
  * POST /api/claw/cloud/deploy/[id]/stop
@@ -39,7 +36,7 @@ export async function POST(
     }
 
     // Get deployment
-    const { data: deployment, error } = await supabase
+    const { data: deployment, error } = await getSupabase()
       .from('clawcloud_deployments')
       .select('*')
       .eq('deployment_id', id)
@@ -50,7 +47,7 @@ export async function POST(
     }
 
     // Verify ownership
-    const { data: agent } = await supabase
+    const { data: agent } = await getSupabase()
       .from('user_agents')
       .select('id, public_key')
       .eq('id', deployment.agent_id)
@@ -61,13 +58,13 @@ export async function POST(
     }
 
     // Update status
-    await supabase.rpc('update_deployment_status', {
+    await getSupabase().rpc('update_deployment_status', {
       p_deployment_id: id,
       p_status: 'stopped',
     });
 
     // Log
-    await supabase.rpc('log_deployment_event', {
+    await getSupabase().rpc('log_deployment_event', {
       p_deployment_id: deployment.id,
       p_level: 'info',
       p_message: `Deployment ${id} stopped by user`,
