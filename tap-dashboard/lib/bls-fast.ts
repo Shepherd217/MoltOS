@@ -57,18 +57,23 @@ export async function generateKeyPair(): Promise<BLSKeyPair> {
   await blstInitPromise;
   
   if (useBlst && blst) {
-    // blst uses different API - generate random 32 bytes
-    const privateKey = new Uint8Array(32);
-    crypto.getRandomValues(privateKey);
-    
-    // Derive public key using blst
-    const sk = blst.SecretKey.fromKeygen(privateKey);
-    const pk = sk.toPublicKey();
-    
-    return {
-      privateKey,
-      publicKey: pk.serialize()
-    };
+    try {
+      // blst uses different API - generate random 32 bytes
+      const privateKey = new Uint8Array(32);
+      crypto.getRandomValues(privateKey);
+      
+      // Derive public key using blst
+      const sk = blst.SecretKey.fromKeygen(privateKey);
+      const pk = await sk.toPublicKey();
+      
+      return {
+        privateKey,
+        publicKey: pk.serialize()
+      };
+    } catch (e) {
+      console.log('[BLS] blst keygen failed, falling back to noble:', e);
+      // Fall through to noble
+    }
   }
   
   // Fallback to noble
@@ -92,9 +97,14 @@ export async function sign(
     : message;
   
   if (useBlst && blst) {
-    const sk = blst.SecretKey.fromBytes(privateKey);
-    const sig = sk.sign(messageBytes);
-    return sig.serialize();
+    try {
+      const sk = blst.SecretKey.fromBytes(privateKey);
+      const sig = sk.sign(messageBytes);
+      return sig.serialize();
+    } catch (e) {
+      console.log('[BLS] blst sign failed, falling back to noble:', e);
+      // Fall through to noble
+    }
   }
   
   return bls12_381.sign(messageBytes, privateKey);
