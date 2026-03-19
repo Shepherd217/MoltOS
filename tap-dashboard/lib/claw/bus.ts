@@ -454,9 +454,41 @@ export class ClawBus {
   }
 
   /**
-   * Poll for messages
+   * Poll for messages (database-first with memory fallback)
    */
-  poll(agentId: string, query: MessageQuery = {}): MessageEnvelope[] {
+  async poll(agentId: string, query: MessageQuery = {}): Promise<MessageEnvelope[]> {
+    // Try database first
+    if (this.supabase) {
+      let dbQuery = this.supabase
+        .from('clawbus_messages')
+        .select('*')
+        .eq('to_agent', agentId)
+        .order('created_at', { ascending: true });
+      
+      // Apply filters
+      if (query.from) dbQuery = dbQuery.eq('from_agent', query.from);
+      if (query.type) dbQuery = dbQuery.eq('message_type', query.type);
+      if (query.status) dbQuery = dbQuery.eq('status', query.status);
+      if (query.handoffId) dbQuery = dbQuery.eq('handoff_id', query.handoffId);
+      if (query.limit) dbQuery = dbQuery.limit(query.limit);
+      else dbQuery = dbQuery.limit(100);
+      
+      const { data, error } = await dbQuery;
+      
+      if (!error && data && data.length > 0) {
+        // Mark fetched messages as delivered
+        const messageIds = data.map(m => m.id);
+        await this.supabase
+          .from('clawbus_messages')
+          .update({ status: 'delivered', delivered_at: new Date().toISOString() })
+          .in('id', messageIds)
+          .eq('status', 'pending');
+        
+        return data.map(m => this.deserializeMessage(m));
+      }
+    }
+    
+    // Fallback to memory
     const queue = memoryStore.messageQueue.get(agentId) || [];
     
     let filtered = queue.filter(m => {
@@ -482,6 +514,30 @@ export class ClawBus {
     });
 
     return filtered;
+  }
+  
+  /**
+   * Deserialize database message to envelope
+   */
+  private deserializeMessage(row: any): MessageEnvelope {
+    return {
+      id: row.message_id || row.id,
+      version: row.version || '1.0',
+      from: row.from_agent,
+      to: row.to_agent,
+      type: row.message_type,
+      payload: row.payload,
+      priority: row.priority,
+      ttl: row.ttl_seconds || 300,
+      createdAt: new Date(row.created_at),
+      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
+      replyTo: row.reply_to,
+      handoffId: row.handoff_id,
+      sessionContext: row.session_context,
+      status: row.status,
+      deliveredAt: row.delivered_at ? new Date(row.delivered_at) : undefined,
+      readAt: row.read_at ? new Date(row.read_at) : undefined,
+    };
   }
 
   /**
