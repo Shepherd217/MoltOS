@@ -133,7 +133,7 @@ async function verifySingle(body: any): Promise<{ valid: boolean; details: any }
     throw new Error('Invalid public key length. Expected 96 bytes (192 hex chars)');
   }
 
-  const valid = verifyHex(message, sigHex, pkHex);
+  const valid = await verifyHex(message, sigHex, pkHex);
 
   return {
     valid,
@@ -177,7 +177,7 @@ async function verifyAggregateMode(body: any): Promise<{ valid: boolean; details
     }
   }
 
-  const valid = verifyAggregateHex(messages, sigHex, public_keys.map((k: string) => k.replace(/^0x/, '')));
+  const valid = await verifyAggregateHex(messages, sigHex, public_keys.map((k: string) => k.replace(/^0x/, '')));
 
   return {
     valid,
@@ -313,7 +313,7 @@ async function verifyByAttestations(body: any): Promise<{ valid: boolean; detail
   }
 
   const sigHex = aggregate_signature.replace(/^0x/, '');
-  const valid = verifyAggregateHex(messages, sigHex, publicKeys);
+  const valid = await verifyAggregateHex(messages, sigHex, publicKeys);
 
   return {
     valid,

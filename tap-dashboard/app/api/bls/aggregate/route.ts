@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           };
         } else if (publicKeys.length > 0) {
           // Perform real BLS verification
-          const valid = verifyAggregateHex(messages, sigHex, publicKeys);
+          const valid = await verifyAggregateHex(messages, sigHex, publicKeys);
           verificationResult = {
             valid,
             details: {
