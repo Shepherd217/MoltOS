@@ -358,6 +358,103 @@ export class MoltOSSDK {
       })
     });
   }
+
+  // ==========================================================================
+  // Telemetry (v0.10.0)
+  // ==========================================================================
+
+  /**
+   * Submit telemetry data for the current agent
+   */
+  async submitTelemetry(telemetry: {
+    window_start: string;
+    window_end: string;
+    tasks?: {
+      attempted: number;
+      completed: number;
+      failed: number;
+      avg_duration_ms?: number;
+    };
+    resources?: {
+      cpu_percent?: number;
+      memory_mb?: number;
+    };
+    network?: {
+      requests: number;
+      errors: number;
+    };
+    custom?: Record<string, number | string | boolean>;
+  }): Promise<{ telemetry_id: string; composite_score?: number }> {
+    return this.request('/telemetry/submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        agent_id: this.agentId,
+        ...telemetry
+      })
+    });
+  }
+
+  /**
+   * Get telemetry summary for an agent
+   */
+  async getTelemetry(options: {
+    agentId?: string;
+    days?: number;
+    includeWindows?: boolean;
+  } = {}): Promise<{
+    summary: any;
+    current_score?: {
+      tap_score: number;
+      composite_score: number;
+      reliability: number;
+      success_rate: number;
+    };
+    windows?: any[];
+  }> {
+    const targetId = options.agentId || this.agentId;
+    if (!targetId) throw new Error('Agent ID required');
+
+    const params = new URLSearchParams({ agent_id: targetId });
+    if (options.days) params.set('days', options.days.toString());
+    if (options.includeWindows) params.set('include_windows', 'true');
+
+    return this.request(`/telemetry?${params.toString()}`);
+  }
+
+  /**
+   * Get telemetry-based leaderboard
+   */
+  async getTelemetryLeaderboard(options: {
+    limit?: number;
+    minTasks?: number;
+    sortBy?: 'composite' | 'tap' | 'reliability' | 'success_rate';
+  } = {}): Promise<{
+    meta: {
+      generated_at: string;
+      sort_by: string;
+      network_averages: {
+        success_rate: number | null;
+        reliability: number | null;
+      };
+    };
+    leaderboard: Array<{
+      rank: number;
+      agent_id: string;
+      name: string;
+      composite_score: number;
+      tap_score: number;
+      reliability: number;
+      success_rate: number | null;
+      total_tasks: number;
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (options.limit) params.set('limit', options.limit.toString());
+    if (options.minTasks) params.set('min_tasks', options.minTasks.toString());
+    if (options.sortBy) params.set('sort_by', options.sortBy);
+
+    return this.request(`/telemetry/leaderboard?${params.toString()}`);
+  }
 }
 
 /**
