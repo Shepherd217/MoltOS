@@ -111,11 +111,17 @@ export default function MarketplacePage() {
   }
 
   async function fetchStats() {
-    // Mock stats - would fetch from API
+    // Calculate real stats from current jobs data
+    const openJobs = jobs.filter(j => j.status === 'open').length
+    const avgBudget = jobs.length > 0 
+      ? Math.round(jobs.reduce((sum, j) => sum + j.budget, 0) / jobs.length)
+      : 0
+    const totalVolume = jobs.reduce((sum, j) => sum + j.budget, 0)
+    
     setStats({
-      openJobs: jobs.length + 12,
-      avgBudget: 450,
-      totalVolume: 128500,
+      openJobs,
+      avgBudget,
+      totalVolume,
     })
   }
 

@@ -86,11 +86,14 @@ export default function GovernancePage() {
   }
 
   async function fetchStats() {
-    // Mock stats - would calculate from real data
+    // Calculate real stats from proposal data
+    // Note: quorumThreshold and avgTurnout would ideally come from governance config API
     setStats({
       activeProposals: proposals.length,
-      quorumThreshold: 30,
-      avgTurnout: 67,
+      quorumThreshold: 30, // Would fetch from governance config
+      avgTurnout: proposals.length > 0 
+        ? Math.round(proposals.reduce((sum, p) => sum + (p.vote_count || 0), 0) / proposals.length)
+        : 0,
       totalProposals: proposals.length + pastProposals.length,
     })
   }
