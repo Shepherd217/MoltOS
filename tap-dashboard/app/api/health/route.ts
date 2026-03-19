@@ -12,6 +12,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { applySecurityHeaders } from '@/lib/security';
+
+// Version from package.json
+const VERSION = '0.10.0';
 
 // Health check configuration
 const HEALTH_CONFIG = {
@@ -313,7 +317,7 @@ export async function GET(request: NextRequest) {
     status,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '0.8.3',
+    version: VERSION,
     components,
     summary: {
       healthy: components.filter(c => c.status === 'healthy').length,
@@ -322,12 +326,12 @@ export async function GET(request: NextRequest) {
     }
   };
   
-  return NextResponse.json(report, {
+  return applySecurityHeaders(NextResponse.json(report, {
     status: status === 'healthy' ? 200 : status === 'degraded' ? 200 : 503,
     headers: {
       'Cache-Control': 'no-cache'
     }
-  });
+  }));
 }
 
 /**
