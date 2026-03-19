@@ -1,14 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verifyClawIDSignature } from '@/lib/clawid-auth'
+import { applyRateLimit, applySecurityHeaders, validateBodySize } from '@/lib/security'
 import type { Tables, TablesInsert } from '@/lib/database.types'
 
 type Agent = Tables<'agents'>
 type Swarm = Tables<'swarms'>
 
+// Rate limit: 5 deployments per minute per IP
+const MAX_BODY_SIZE_KB = 500; // 500KB max for config
+
 export async function POST(request: NextRequest) {
+  const path = '/api/deploy';
+  
+  // Apply rate limiting
+  const { response: rateLimitResponse, headers: rateLimitHeaders } = applyRateLimit(request, path);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+  
   try {
-    const body = await request.json()
+    // Read and validate body size
+    const bodyText = await request.text();
+    const sizeCheck = validateBodySize(bodyText, MAX_BODY_SIZE_KB);
+    if (!sizeCheck.valid) {
+      const response = NextResponse.json(
+        { error: sizeCheck.error },
+        { status: 413 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+    
+    let body;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      const response = NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+    
     const {
       swarm_name,
       config, // fly.toml or helm values
@@ -20,10 +59,38 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!swarm_name || !public_key || !signature) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+
+    // Validate swarm_name format (alphanumeric, hyphens, max 63 chars)
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/.test(swarm_name)) {
+      const response = NextResponse.json(
+        { error: 'Invalid swarm_name format. Must start with alphanumeric, max 63 chars, alphanumeric and hyphens only.' },
+        { status: 400 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+
+    // Validate provider
+    if (provider !== 'fly' && provider !== 'helm') {
+      const response = NextResponse.json(
+        { error: 'Invalid provider. Use: fly or helm' },
+        { status: 400 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
 
     // Verify ClawID signature
@@ -31,10 +98,14 @@ export async function POST(request: NextRequest) {
     const verification = await verifyClawIDSignature(public_key, signature, payload)
     
     if (!verification.valid) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: verification.error || 'Invalid ClawID signature' },
         { status: 401 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
 
     // Look up agent
@@ -47,10 +118,14 @@ export async function POST(request: NextRequest) {
     const agent = agentResult.data as Agent | null
 
     if (agentResult.error || !agent) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Agent not found' },
         { status: 404 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
 
     // Generate deployment config
@@ -77,16 +152,20 @@ export async function POST(request: NextRequest) {
 
     if (swarmResult.error || !swarm) {
       console.error('Failed to create swarm:', swarmResult.error)
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Failed to create swarm record' },
         { status: 500 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
 
     // In production, this would trigger actual deployment
     // For now, return the config and instructions
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       swarm: {
         id: swarm.id,
@@ -105,13 +184,24 @@ export async function POST(request: NextRequest) {
         'Run the deployment command',
         'Monitor status at /dashboard',
       ],
-    })
+    });
+    
+    Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    
+    return applySecurityHeaders(response);
+    
   } catch (error) {
     console.error('Deploy error:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Deployment failed' },
       { status: 500 }
-    )
+    );
+    Object.entries(rateLimitHeaders || {}).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return applySecurityHeaders(response);
   }
 }
 

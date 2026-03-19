@@ -1,10 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verifyClawIDSignature } from '@/lib/clawid-auth'
+import { applyRateLimit, applySecurityHeaders, validateBodySize } from '@/lib/security'
+
+// Rate limit: 20 votes per minute per IP
+const MAX_BODY_SIZE_KB = 50;
 
 export async function POST(request: NextRequest) {
+  const path = '/api/governance/vote';
+  
+  // Apply rate limiting
+  const { response: rateLimitResponse, headers: rateLimitHeaders } = applyRateLimit(request, path);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+  
   try {
-    const body = await request.json()
+    // Read and validate body size
+    const bodyText = await request.text();
+    const sizeCheck = validateBodySize(bodyText, MAX_BODY_SIZE_KB);
+    if (!sizeCheck.valid) {
+      const response = NextResponse.json(
+        { error: sizeCheck.error },
+        { status: 413 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+    
+    let body;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      const response = NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+    
     const {
       proposal_id,
       vote_type, // 'yes' or 'no'
@@ -15,17 +54,25 @@ export async function POST(request: NextRequest) {
     } = body
     
     if (!proposal_id || !vote_type || !voter_public_key || !voter_signature) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     if (vote_type !== 'yes' && vote_type !== 'no') {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Invalid vote type (must be yes or no)' },
         { status: 400 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     // Verify ClawID signature
@@ -33,10 +80,14 @@ export async function POST(request: NextRequest) {
     const verification = await verifyClawIDSignature(voter_public_key, voter_signature, payload)
     
     if (!verification.valid) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: verification.error || 'Invalid ClawID signature' },
         { status: 401 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     // Look up voter
@@ -47,10 +98,14 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (voterError || !voter) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Voter agent not found' },
         { status: 404 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     // Check proposal exists and is active
@@ -61,24 +116,36 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (proposalError || !proposal) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Proposal not found' },
         { status: 404 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     if (proposal.status !== 'active') {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Proposal is not active' },
         { status: 400 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     if (new Date(proposal.ends_at) < new Date()) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Voting window has closed' },
         { status: 400 }
-      )
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
     }
     
     // Check if already voted
@@ -101,10 +168,14 @@ export async function POST(request: NextRequest) {
         .eq('id', existingVote.id)
       
       if (updateError) {
-        return NextResponse.json(
+        const response = NextResponse.json(
           { error: 'Failed to update vote' },
           { status: 500 }
-        )
+        );
+        Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+        return applySecurityHeaders(response);
       }
     } else {
       // Create new vote
@@ -121,14 +192,18 @@ export async function POST(request: NextRequest) {
       
       if (voteError) {
         console.error('Failed to record vote:', voteError)
-        return NextResponse.json(
+        const response = NextResponse.json(
           { error: 'Failed to record vote' },
           { status: 500 }
-        )
+        );
+        Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+        return applySecurityHeaders(response);
       }
     }
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       vote: {
         proposal_id,
@@ -139,12 +214,23 @@ export async function POST(request: NextRequest) {
           tap_weight: voter.reputation,
         },
       },
-    })
+    });
+    
+    Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    
+    return applySecurityHeaders(response);
+    
   } catch (error) {
     console.error('Governance vote error:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to cast vote' },
       { status: 500 }
-    )
+    );
+    Object.entries(rateLimitHeaders || {}).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return applySecurityHeaders(response);
   }
 }

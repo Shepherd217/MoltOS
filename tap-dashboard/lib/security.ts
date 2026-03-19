@@ -34,6 +34,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/bls/aggregate': { requests: 20, windowMs: 60 * 1000 },
   '/api/attest': { requests: 10, windowMs: 60 * 1000 },
   '/api/agent/attest': { requests: 10, windowMs: 60 * 1000 },
+  '/api/deploy': { requests: 5, windowMs: 60 * 1000 },
+  '/api/governance/vote': { requests: 20, windowMs: 60 * 1000 },
   '/api/stripe/webhook': { requests: 100, windowMs: 60 * 1000 },
   default: DEFAULT_RATE_LIMIT,
 };
