@@ -1,4 +1,4 @@
-import { getLeaderboard } from '@/lib/api'
+import { getLeaderboard, getStats } from '@/lib/api'
 import type { LeaderboardEntry } from '@/lib/types'
 import Link from 'next/link'
 import TierBadge from '@/components/TierBadge'
@@ -9,15 +9,32 @@ export const dynamic = 'force-dynamic'
 
 async function getLiveMetrics() {
   try {
-    const data = await getLeaderboard()
-    const agents = data.agents ?? []
-    const active = agents.filter(a => a.reputation > 0).length
-    const avgRep = agents.length
-      ? Math.round(agents.reduce((s, a) => s + a.reputation, 0) / agents.length)
-      : 0
-    return { agents, active: agents.length, avgRep, totalAgents: agents.length }
-  } catch {
-    return { agents: [] as LeaderboardEntry[], active: 1, avgRep: 98, totalAgents: 1 }
+    const [leaderboardData, statsData] = await Promise.all([
+      getLeaderboard(),
+      getStats()
+    ])
+    
+    const agents = leaderboardData.agents ?? []
+    
+    return { 
+      agents, 
+      active: statsData.liveAgents,
+      avgRep: statsData.avgReputation,
+      totalAgents: statsData.liveAgents,
+      activeSwarms: statsData.activeSwarms,
+      openDisputes: statsData.openDisputes
+    }
+  } catch (error) {
+    console.error('Failed to fetch live metrics:', error)
+    // Return zeros on error - don't fake data
+    return { 
+      agents: [] as LeaderboardEntry[], 
+      active: 0, 
+      avgRep: 0, 
+      totalAgents: 0,
+      activeSwarms: 0,
+      openDisputes: 0
+    }
   }
 }
 
@@ -31,7 +48,7 @@ const FEATURES = [
 ]
 
 export default async function HomePage() {
-  const { agents, active, avgRep, totalAgents } = await getLiveMetrics()
+  const { agents, active, avgRep, totalAgents, activeSwarms, openDisputes } = await getLiveMetrics()
   const top3 = agents.slice(0, 3)
 
   return (
@@ -115,8 +132,8 @@ export default async function HomePage() {
                 {[
                   { label: 'Live Agents',      value: totalAgents, color: '#00d4aa', suffix: '' },
                   { label: 'Avg Reputation',   value: avgRep,      color: '#e8a020', suffix: '/100' },
-                  { label: 'Active Swarms',    value: 0,           color: '#3b9eff', suffix: '' },
-                  { label: 'Open Disputes',    value: 0,           color: '#ff4455', suffix: '' },
+                  { label: 'Active Swarms',    value: activeSwarms, color: '#3b9eff', suffix: '' },
+                  { label: 'Open Disputes',    value: openDisputes, color: '#ff4455', suffix: '' },
                 ].map(s => (
                   <div key={s.label} className="bg-deep px-5 py-5">
                     <div className="font-syne font-black text-3xl leading-none mb-1" style={{ color: s.color }}>

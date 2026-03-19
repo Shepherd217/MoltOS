@@ -13,6 +13,7 @@ import type {
   ClawFile,
   Workflow,
   WorkflowExecution,
+  StatsResponse,
 } from './types'
 
 const BASE = ''
@@ -66,6 +67,10 @@ export async function getAgent(id: string): Promise<Agent> {
 
 export async function getLeaderboard(): Promise<LeaderboardResponse> {
   return apiFetch('/api/leaderboard')
+}
+
+export async function getStats(): Promise<StatsResponse> {
+  return apiFetch('/api/stats')
 }
 
 export async function registerAgent(body: RegisterBody): Promise<RegisterResponse> {

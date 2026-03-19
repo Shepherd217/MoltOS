@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { applyRateLimit, applySecurityHeaders } from '@/lib/security';
 
 // Lazy initialization of Supabase client
 let supabase: ReturnType<typeof createClient> | null = null;
@@ -18,58 +19,89 @@ function getSupabase() {
   return supabase;
 }
 
-export async function GET() {
+/**
+ * GET /api/stats
+ * Public endpoint for homepage statistics
+ * 
+ * Returns:
+ * {
+ *   liveAgents: number,
+ *   avgReputation: number,
+ *   activeSwarms: number,
+ *   openDisputes: number
+ * }
+ */
+export async function GET(request: NextRequest) {
   try {
-    // Get verified agents (reputation > 1)
-    const { count: agentsVerified } = await getSupabase()
-      .from('waitlist')
-      .select('*', { count: 'exact', head: true })
-      .gt('reputation', 1)
-      .eq('confirmed', true);
+    // Apply rate limiting
+    const rateLimitResult = await applyRateLimit(request, 'public');
+    if (rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
 
-    // Get total attestations (sum of all attestation array lengths)
-    const { data: agents } = await getSupabase()
-      .from('waitlist')
-      .select('attestations');
+    const db = getSupabase();
+
+    // Fetch all stats in parallel
+    const [
+      agentsResult,
+      swarmsResult,
+      disputesResult
+    ] = await Promise.all([
+      // Live agents count and avg reputation
+      db
+        .from('agents')
+        .select('reputation', { count: 'exact' }),
+      
+      // Active swarms count
+      db
+        .from('swarms')
+        .select('*', { count: 'exact' })
+        .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      
+      // Open disputes count
+      db
+        .from('dispute_cases')
+        .select('*', { count: 'exact' })
+        .in('status', ['pending', 'voting', 'evidence_gathering'])
+    ]);
+
+    // Calculate metrics
+    const liveAgents = agentsResult.count ?? 0;
     
-    const attestationsToday = (agents as any[])?.reduce((sum, agent) => {
-      return sum + (agent.attestations?.length || 0);
-    }, 0) || 0;
+    const avgReputation = agentsResult.data && agentsResult.data.length > 0
+      ? Math.round(
+          agentsResult.data.reduce((sum, a) => sum + (a.reputation || 0), 0) / 
+          agentsResult.data.length
+        )
+      : 0;
 
-    // Get average reputation
-    const { data: repData } = await getSupabase()
-      .from('waitlist')
-      .select('reputation')
-      .eq('confirmed', true);
-    
-    const avgReputation = repData && repData.length > 0
-      ? Math.round((repData as any[]).reduce((sum, r) => sum + (r.reputation || 0), 0) / repData.length)
-      : 100;
+    const activeSwarms = swarmsResult.count ?? 0;
+    const openDisputes = disputesResult.count ?? 0;
 
-    // Get Open Claw attestations (from open-claw agent)
-    const { data: openClawData } = await getSupabase()
-      .from('waitlist')
-      .select('attestations')
-      .eq('agent_id', 'open-claw')
-      .single();
-    
-    const openClawAttestations = (openClawData as any)?.attestations?.length || 0;
-
-    return NextResponse.json({
-      agentsVerified: agentsVerified || 4,
-      attestationsToday,
+    const response = NextResponse.json({
+      liveAgents,
       avgReputation,
-      openClawAttestations,
-      success: true
+      activeSwarms,
+      openDisputes,
+      timestamp: new Date().toISOString()
     });
+
+    return applySecurityHeaders(response);
+
   } catch (error) {
-    // Fallback data
-    return NextResponse.json({
-      agentsVerified: 4,
-      attestationsToday: 0,
-      avgReputation: 100,
-      openClawAttestations: 0,
-      success: true
-    });
+    console.error('Stats API error:', error);
+    
+    const response = NextResponse.json(
+      { 
+        liveAgents: 0,
+        avgReputation: 0,
+        activeSwarms: 0,
+        openDisputes: 0,
+        error: 'Failed to fetch statistics'
+      },
+      { status: 500 }
+    );
+    
+    return applySecurityHeaders(response);
   }
 }

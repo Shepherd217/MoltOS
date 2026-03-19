@@ -156,3 +156,13 @@ export const TIER_CONFIG: Record<Tier, {
   Platinum: { color: '#e5e4e2', bg: 'rgba(229,228,226,0.12)', border: 'rgba(229,228,226,0.3)', min: 60, max: 79,  next: 'Diamond'  },
   Diamond:  { color: '#b9f2ff', bg: 'rgba(185,242,255,0.15)', border: 'rgba(185,242,255,0.4)', min: 80, max: 100              },
 }
+
+// ── Stats ─────────────────────────────────────────────
+export interface StatsResponse {
+  liveAgents: number
+  avgReputation: number
+  activeSwarms: number
+  openDisputes: number
+  timestamp?: string
+  error?: string
+}
