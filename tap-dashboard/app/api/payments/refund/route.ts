@@ -10,6 +10,9 @@ import {
   PaymentError,
 } from '@/lib/payments/stripe';
 import { RefundPaymentRequest } from '@/types/payments';
+import { getClawBusService } from '@/lib/claw/bus';
+import { createClient } from '@supabase/supabase-js';
+import { applyRateLimit, applySecurityHeaders } from '@/lib/security';
 
 // Valid refund reasons
 const VALID_REFUND_REASONS: Array<'duplicate' | 'fraudulent' | 'requested_by_customer' | 'expired_uncaptured_charge'> = [
@@ -19,38 +22,128 @@ const VALID_REFUND_REASONS: Array<'duplicate' | 'fraudulent' | 'requested_by_cus
   'expired_uncaptured_charge',
 ];
 
+// Helper to get payment details
+async function getPaymentDetails(paymentIntentId: string) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+  
+  const { data, error } = await supabase
+    .from('escrow_transactions')
+    .select('hirer_id, worker_id, amount, job_id')
+    .eq('payment_intent_id', paymentIntentId)
+    .single();
+    
+  if (error || !data) {
+    return null;
+  }
+  
+  return data;
+}
+
+// Notify parties of refund
+async function notifyRefund(
+  paymentIntentId: string,
+  hirerId: string,
+  workerId: string,
+  amount: number,
+  reason?: string,
+  jobId?: string
+): Promise<void> {
+  try {
+    const bus = getClawBusService();
+    
+    // Notify hirer
+    await bus.send({
+      type: 'notification',
+      from: 'system',
+      to: hirerId,
+      payload: {
+        type: 'payment_refunded',
+        title: 'Payment Refunded',
+        message: `Your payment of $${(amount / 100).toFixed(2)} has been refunded${reason ? ` (${reason})` : ''}.`,
+        paymentIntentId,
+        jobId,
+        amount,
+        reason,
+      },
+      priority: 4,
+    });
+    
+    // Notify worker
+    await bus.send({
+      type: 'notification',
+      from: 'system',
+      to: workerId,
+      payload: {
+        type: 'work_refunded',
+        title: 'Work Refunded',
+        message: `The payment for your work has been refunded to the customer${reason ? ` (${reason})` : ''}.`,
+        paymentIntentId,
+        jobId,
+        amount,
+        reason,
+      },
+      priority: 4,
+    });
+    
+    // Update job status if jobId exists
+    if (jobId) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      );
+      
+      await supabase
+        .from('marketplace_jobs')
+        .update({ status: 'refunded', refunded_at: new Date().toISOString() })
+        .eq('id', jobId);
+    }
+  } catch (error) {
+    console.error('Failed to send refund notifications:', error);
+    // Don't throw - refund already processed, notification failure shouldn't fail the request
+  }
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Apply rate limiting
+    const rateLimitResult = await applyRateLimit(request, 'critical');
+    if (rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     // Parse request body
     const body = await request.json();
 
     // Validate required fields
     if (!body.paymentIntentId) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'Missing required field: paymentIntentId' },
         { status: 400 }
-      );
+      ));
     }
 
     // Validate optional amount for partial refund
     if (body.amount !== undefined) {
       if (!Number.isInteger(body.amount) || body.amount < 1) {
-        return NextResponse.json(
+        return applySecurityHeaders(NextResponse.json(
           { error: 'Invalid amount. Must be a positive integer in cents.' },
           { status: 400 }
-        );
+        ));
       }
     }
 
     // Validate reason if provided
     if (body.reason && !VALID_REFUND_REASONS.includes(body.reason)) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         {
           error: 'Invalid refund reason',
           validReasons: VALID_REFUND_REASONS,
         },
         { status: 400 }
-      );
+      ));
     }
 
     // Build refund request
@@ -63,13 +156,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Process refund
     const result = await refundPayment(refundRequest);
 
-    // TODO: Notify task service of refund
-    // This could trigger:
-    // - Task status update to 'refunded' or 'disputed'
-    // - Agent notification of refund
-    // - Customer confirmation email
+    // Get payment details for notifications
+    const paymentDetails = await getPaymentDetails(body.paymentIntentId);
+    
+    // Notify parties
+    if (paymentDetails) {
+      await notifyRefund(
+        body.paymentIntentId,
+        paymentDetails.hirer_id,
+        paymentDetails.worker_id,
+        body.amount || paymentDetails.amount,
+        body.reason,
+        paymentDetails.job_id
+      );
+    }
 
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       {
         success: true,
         data: result,
@@ -78,7 +180,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           : 'Full refund processed successfully',
       },
       { status: 200 }
-    );
+    ));
   } catch (error) {
     console.error('Refund payment error:', error);
 
@@ -102,21 +204,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           statusCode = 400;
       }
 
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         {
           error: error.message,
           code: error.code,
         },
         { status: statusCode }
-      );
+      ));
     }
 
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       {
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
-    );
+    ));
   }
 }

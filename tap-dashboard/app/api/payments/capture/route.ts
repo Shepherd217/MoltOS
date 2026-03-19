@@ -10,27 +10,117 @@ import {
   PaymentError,
 } from '@/lib/payments/stripe';
 import { CapturePaymentRequest } from '@/types/payments';
+import { getClawBusService } from '@/lib/claw/bus';
+import { createClient } from '@supabase/supabase-js';
+import { applyRateLimit, applySecurityHeaders } from '@/lib/security';
+
+// Helper to get payment details
+async function getPaymentDetails(paymentIntentId: string) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+  
+  const { data, error } = await supabase
+    .from('escrow_transactions')
+    .select('hirer_id, worker_id, amount, job_id')
+    .eq('payment_intent_id', paymentIntentId)
+    .single();
+    
+  if (error || !data) {
+    return null;
+  }
+  
+  return data;
+}
+
+// Notify parties of payment capture
+async function notifyPaymentCapture(
+  paymentIntentId: string,
+  hirerId: string,
+  workerId: string,
+  amount: number,
+  jobId?: string
+): Promise<void> {
+  try {
+    const bus = getClawBusService();
+    
+    // Notify hirer
+    await bus.send({
+      type: 'notification',
+      from: 'system',
+      to: hirerId,
+      payload: {
+        type: 'payment_captured',
+        title: 'Payment Released',
+        message: `Your payment of $${(amount / 100).toFixed(2)} has been released to the agent.`,
+        paymentIntentId,
+        jobId,
+        amount,
+      },
+      priority: 4,
+    });
+    
+    // Notify worker
+    await bus.send({
+      type: 'notification',
+      from: 'system',
+      to: workerId,
+      payload: {
+        type: 'payment_received',
+        title: 'Payment Received',
+        message: `You have received $${(amount / 100).toFixed(2)} for completed work.`,
+        paymentIntentId,
+        jobId,
+        amount,
+      },
+      priority: 4,
+    });
+    
+    // Update job status if jobId exists
+    if (jobId) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      );
+      
+      await supabase
+        .from('marketplace_jobs')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', jobId);
+    }
+  } catch (error) {
+    console.error('Failed to send payment capture notifications:', error);
+    // Don't throw - payment already captured, notification failure shouldn't fail the request
+  }
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Apply rate limiting
+    const rateLimitResult = await applyRateLimit(request, 'critical');
+    if (rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     // Parse request body
     const body = await request.json();
 
     // Validate required fields
     if (!body.paymentIntentId) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'Missing required field: paymentIntentId' },
         { status: 400 }
-      );
+      ));
     }
 
     // Validate optional amount for partial capture
     if (body.amount !== undefined) {
       if (!Number.isInteger(body.amount) || body.amount < 1) {
-        return NextResponse.json(
+        return applySecurityHeaders(NextResponse.json(
           { error: 'Invalid amount. Must be a positive integer in cents.' },
           { status: 400 }
-        );
+        ));
       }
     }
 
@@ -43,20 +133,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Capture payment
     const result = await capturePayment(captureRequest);
 
-    // TODO: Notify task service of successful capture
-    // This could trigger:
-    // - Task status update to 'completed'
-    // - Agent notification of payment release
-    // - Customer receipt email
+    // Get payment details for notifications
+    const paymentDetails = await getPaymentDetails(body.paymentIntentId);
+    
+    // Notify parties
+    if (paymentDetails) {
+      await notifyPaymentCapture(
+        body.paymentIntentId,
+        paymentDetails.hirer_id,
+        paymentDetails.worker_id,
+        body.amount || paymentDetails.amount,
+        paymentDetails.job_id
+      );
+    }
 
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       {
         success: true,
         data: result,
         message: 'Payment captured successfully',
       },
       { status: 200 }
-    );
+    ));
   } catch (error) {
     console.error('Capture payment error:', error);
 
@@ -78,21 +176,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           statusCode = 400;
       }
 
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         {
           error: error.message,
           code: error.code,
         },
         { status: statusCode }
-      );
+      ));
     }
 
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       {
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
-    );
+    ));
   }
 }
