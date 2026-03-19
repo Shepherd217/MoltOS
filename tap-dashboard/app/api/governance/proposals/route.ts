@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { verifyClawIDSignature } from '@/lib/clawid-auth'
 import type { Tables, TablesInsert } from '@/lib/database.types'
 
 type Proposal = Tables<'governance_proposals'>
 type Agent = Tables<'agents'>
-
-// ClawID verification helper
-async function verifyClawIDSignature(
-  publicKey: string,
-  signature: string,
-  payload: object
-): Promise<boolean> {
-  return signature.length > 0 && publicKey.length > 0
-}
 
 // GET /api/governance/proposals - List all proposals
 export async function GET(request: NextRequest) {
@@ -110,11 +102,11 @@ export async function POST(request: NextRequest) {
     
     // Verify ClawID signature
     const payload = { title, description, parameter, new_value, timestamp }
-    const isValid = await verifyClawIDSignature(proposer_public_key, proposer_signature, payload)
+    const verification = await verifyClawIDSignature(proposer_public_key, proposer_signature, payload)
     
-    if (!isValid) {
+    if (!verification.valid) {
       return NextResponse.json(
-        { error: 'Invalid ClawID signature' },
+        { error: verification.error || 'Invalid ClawID signature' },
         { status: 401 }
       )
     }

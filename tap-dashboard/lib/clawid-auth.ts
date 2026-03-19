@@ -1,0 +1,194 @@
+/**
+ * ClawID Authentication Utilities
+ * 
+ * Implements Ed25519 signature verification for ClawID authentication.
+ * Includes replay protection via nonce tracking.
+ */
+
+import { ed25519 } from '@noble/curves/ed25519'
+import { supabase } from './supabase'
+
+// Nonce expiration time (5 minutes)
+const NONCE_EXPIRY_MS = 5 * 60 * 1000
+
+export interface ClawIDPayload {
+  challenge: string
+  timestamp: number
+  [key: string]: unknown
+}
+
+export interface VerifiedClawID {
+  valid: boolean
+  error?: string
+  agentId?: string
+  publicKey?: string
+}
+
+/**
+ * Verify an Ed25519 signature for ClawID authentication
+ * 
+ * @param publicKey - Hex-encoded Ed25519 public key
+ * @param signature - Base64-encoded signature
+ * @param payload - The payload that was signed (must include challenge and timestamp)
+ * @returns VerifiedClawID result
+ */
+export async function verifyClawIDSignature(
+  publicKey: string,
+  signature: string,
+  payload: ClawIDPayload
+): Promise<VerifiedClawID> {
+  try {
+    // Validate inputs
+    if (!publicKey || publicKey.length !== 64) {
+      return { valid: false, error: 'Invalid public key format' }
+    }
+    
+    if (!signature || signature.length < 10) {
+      return { valid: false, error: 'Invalid signature format' }
+    }
+
+    // Check timestamp is within acceptable window (prevent replay of old signatures)
+    const now = Date.now()
+    const signatureTime = payload.timestamp
+    
+    if (!signatureTime || typeof signatureTime !== 'number') {
+      return { valid: false, error: 'Missing or invalid timestamp' }
+    }
+    
+    // Signature must be from within last 5 minutes
+    if (now - signatureTime > NONCE_EXPIRY_MS) {
+      return { valid: false, error: 'Signature expired' }
+    }
+    
+    // Signature can't be from the future (allow 1 minute clock skew)
+    if (signatureTime > now + 60000) {
+      return { valid: false, error: 'Invalid timestamp (future)' }
+    }
+
+    // Check nonce/challenge hasn't been used before (replay protection)
+    const nonceValid = await checkAndRecordNonce(payload.challenge, publicKey)
+    if (!nonceValid) {
+      return { valid: false, error: 'Challenge already used or expired' }
+    }
+
+    // Verify Ed25519 signature
+    const message = new TextEncoder().encode(JSON.stringify(payload))
+    const pubKeyBytes = hexToBytes(publicKey)
+    const sigBytes = base64ToBytes(signature)
+    
+    if (pubKeyBytes.length !== 32) {
+      return { valid: false, error: 'Invalid public key length' }
+    }
+    
+    if (sigBytes.length !== 64) {
+      return { valid: false, error: 'Invalid signature length' }
+    }
+
+    const isValid = ed25519.verify(sigBytes, message, pubKeyBytes)
+    
+    if (!isValid) {
+      return { valid: false, error: 'Invalid signature' }
+    }
+
+    // Look up agent by public key
+    const { data: agent, error } = await supabase
+      .from('agent_registry')
+      .select('agent_id')
+      .eq('public_key', publicKey)
+      .single()
+    
+    if (error || !agent) {
+      return { valid: false, error: 'Agent not found for public key' }
+    }
+
+    return { 
+      valid: true, 
+      agentId: agent.agent_id,
+      publicKey 
+    }
+  } catch (err) {
+    console.error('ClawID verification error:', err)
+    return { valid: false, error: 'Verification failed' }
+  }
+}
+
+/**
+ * Check if a nonce has been used and record it if not
+ * Uses Supabase to store used nonces with expiration
+ */
+async function checkAndRecordNonce(nonce: string, publicKey: string): Promise<boolean> {
+  try {
+    // First, check if nonce exists
+    const { data: existing } = await supabase
+      .from('clawid_nonces')
+      .select('id')
+      .eq('nonce', nonce)
+      .eq('public_key', publicKey)
+      .single()
+    
+    if (existing) {
+      return false // Nonce already used
+    }
+    
+    // Record nonce with expiration
+    const { error } = await supabase
+      .from('clawid_nonces')
+      .insert({
+        nonce,
+        public_key: publicKey,
+        expires_at: new Date(Date.now() + NONCE_EXPIRY_MS).toISOString()
+      })
+    
+    if (error) {
+      console.error('Failed to record nonce:', error)
+      return false
+    }
+    
+    return true
+  } catch (err) {
+    console.error('Nonce check error:', err)
+    return false
+  }
+}
+
+/**
+ * Generate a new challenge for ClawID authentication
+ */
+export function generateChallenge(): string {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return bytesToBase64(array)
+}
+
+/**
+ * Clean up expired nonces (call periodically via cron)
+ */
+export async function cleanupExpiredNonces(): Promise<void> {
+  const { error } = await supabase
+    .from('clawid_nonces')
+    .delete()
+    .lt('expires_at', new Date().toISOString())
+  
+  if (error) {
+    console.error('Failed to clean up nonces:', error)
+  }
+}
+
+// Helper functions
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16)
+  }
+  return bytes
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binString = atob(base64)
+  return Uint8Array.from(binString, (m) => m.codePointAt(0)!)
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const binString = Array.from(bytes, (x) => String.fromCodePoint(x)).join('')
+  return btoa(binString)
+}
