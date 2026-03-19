@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyMultiple, verifyAggregateHex } from '@/lib/bls';
 
 let supabase: ReturnType<typeof createClient> | null = null;
 
@@ -22,7 +23,8 @@ function getSupabase() {
  *   aggregate_signature: string,  -- hex encoded 96-byte signature
  *   attestation_ids: string[],    -- UUIDs of attestations being aggregated
  *   public_key_indices: number[], -- Indices in the verifier set
- *   submitted_by: string          -- Agent ID submitting the aggregate
+ *   submitted_by: string,         -- Agent ID submitting the aggregate
+ *   verify_on_submit?: boolean    -- Whether to verify immediately (default: true)
  * }
  */
 export async function POST(request: NextRequest) {
@@ -72,7 +74,87 @@ export async function POST(request: NextRequest) {
       .eq('id', 1)
       .single();
 
-    // Insert aggregate (verification happens async or via separate process)
+    const verifyOnSubmit = body.verify_on_submit !== false; // Default true
+    let verificationResult: { valid: boolean; details?: any; duration_ms?: number } | null = null;
+
+    // Perform BLS verification if enabled and requested
+    if (config?.bls_verification_enabled && verifyOnSubmit) {
+      const verifyStart = performance.now();
+      
+      try {
+        // Fetch attestations and their BLS keys
+        const { data: attestations, error: attError } = await getSupabase()
+          .from('attestations')
+          .select('id, claim, target_agent_id')
+          .in('id', attestation_ids);
+
+        if (attError) throw new Error('Failed to fetch attestations: ' + attError.message);
+
+        // Get BLS keys for the attesting agents
+        const agentIds = [...new Set(attestations?.map((a: any) => a.target_agent_id) || [])];
+        const { data: blsKeys } = await getSupabase()
+          .from('bls_keypairs')
+          .select('agent_id, public_key')
+          .in('agent_id', agentIds)
+          .eq('key_type', 'attestation')
+          .is('revoked_at', null);
+
+        const keyMap = new Map(blsKeys?.map((k: any) => [
+          k.agent_id,
+          Buffer.from(k.public_key).toString('hex')
+        ]) || []);
+
+        // Build arrays for BLS verification
+        const messages: string[] = [];
+        const publicKeys: string[] = [];
+        const missingKeys: string[] = [];
+
+        for (const att of attestations || []) {
+          const pk = keyMap.get(att.target_agent_id);
+          if (!pk) {
+            missingKeys.push(att.target_agent_id);
+            continue;
+          }
+          messages.push(att.claim);
+          publicKeys.push(pk);
+        }
+
+        // Verify if we have all keys
+        if (missingKeys.length > 0) {
+          verificationResult = {
+            valid: false,
+            details: {
+              error: 'Missing BLS keys for agents',
+              missing_agents: missingKeys,
+              attestation_count: attestation_ids.length,
+              verifiable_count: publicKeys.length
+            },
+            duration_ms: Math.round((performance.now() - verifyStart) * 100) / 100
+          };
+        } else if (publicKeys.length > 0) {
+          // Perform real BLS verification
+          const valid = verifyAggregateHex(messages, sigHex, publicKeys);
+          verificationResult = {
+            valid,
+            details: {
+              signer_count: publicKeys.length,
+              unique_claims: new Set(messages).size,
+              all_keys_found: true
+            },
+            duration_ms: Math.round((performance.now() - verifyStart) * 100) / 100
+          };
+        }
+      } catch (verifyError) {
+        console.error('BLS verification error:', verifyError);
+        verificationResult = {
+          valid: false,
+          details: { error: (verifyError as Error).message },
+          duration_ms: Math.round((performance.now() - verifyStart) * 100) / 100
+        };
+      }
+    }
+
+    // Insert aggregate with verification result if available
     const { data: aggregate, error } = await getSupabase()
       .from('aggregated_attestations')
       .insert([{
@@ -80,6 +162,9 @@ export async function POST(request: NextRequest) {
         attestation_count: attestation_ids.length,
         attestation_ids,
         public_key_indices,
+        valid: verificationResult?.valid ?? null,
+        verified_at: verificationResult ? new Date().toISOString() : null,
+        verified_by: verificationResult ? 'bls_automated' : null,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -92,9 +177,13 @@ export async function POST(request: NextRequest) {
       aggregate_id: aggregate.id,
       attestation_count: attestation_ids.length,
       bls_verification_enabled: config?.bls_verification_enabled || false,
-      message: config?.bls_verification_enabled 
-        ? 'Aggregate submitted. Verification in progress.' 
-        : 'Aggregate submitted. BLS verification disabled.'
+      verified: verificationResult?.valid ?? null,
+      verification: verificationResult,
+      message: verificationResult 
+        ? (verificationResult.valid 
+            ? `Aggregate verified: ${verificationResult.details?.signer_count || 0} signers, ${verificationResult.duration_ms}ms`
+            : `Aggregate verification failed: ${verificationResult.details?.error || 'invalid signature'}`)
+        : 'Aggregate submitted. Verification skipped (disabled or requested).'
     });
 
   } catch (error) {
