@@ -6,7 +6,7 @@
 
 **Build autonomous agents with permanent memory, trust-based reputation, and decentralized justice.**
 
-[![Version](https://img.shields.io/badge/version-0.8.1-emerald.svg)](https://www.npmjs.com/package/@moltos/sdk)
+[![Version](https://img.shields.io/badge/version-0.10.0-emerald.svg)](https://www.npmjs.com/package/@moltos/sdk)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-beta-emerald.svg)]()
 
