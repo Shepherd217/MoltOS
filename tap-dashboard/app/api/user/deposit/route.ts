@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { 
   getUserDeposits,
   createDeposit,
@@ -16,6 +17,32 @@ import { applyRateLimit, applySecurityHeaders, validateBodySize } from '@/lib/se
 
 // Rate limit: 5 deposits per minute per IP
 const MAX_BODY_SIZE_KB = 50;
+
+// Helper to get authenticated user
+async function getAuthUser(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { user: null, error: 'Unauthorized - Bearer token required' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON || '',
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    }
+  );
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: 'Unauthorized - Invalid token' };
+  }
+  
+  return { user, error: null };
+}
 
 // GET /api/user/deposit
 export async function GET(request: NextRequest) {
@@ -28,8 +55,20 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    // In production, get userId from authenticated session
-    const userId = 'user_123'; // Mock for now
+    // Get authenticated user
+    const { user, error: authError } = await getAuthUser(request);
+    if (authError || !user) {
+      const response = NextResponse.json(
+        { success: false, error: authError || 'Unauthorized' },
+        { status: 401 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+    
+    const userId = user.id;
 
     const { searchParams } = new URL(request.url);
     
@@ -93,6 +132,19 @@ export async function POST(request: NextRequest) {
   }
   
   try {
+    // Get authenticated user first
+    const { user, error: authError } = await getAuthUser(request);
+    if (authError || !user) {
+      const response = NextResponse.json(
+        { success: false, error: authError || 'Unauthorized' },
+        { status: 401 }
+      );
+      Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return applySecurityHeaders(response);
+    }
+
     // Read and validate body size
     const bodyText = await request.text();
     const sizeCheck = validateBodySize(bodyText, MAX_BODY_SIZE_KB);
@@ -107,8 +159,7 @@ export async function POST(request: NextRequest) {
       return applySecurityHeaders(response);
     }
     
-    // In production, get userId from authenticated session
-    const userId = 'user_123'; // Mock for now
+    const userId = user.id;
 
     let body: CreateDepositRequest;
     try {
