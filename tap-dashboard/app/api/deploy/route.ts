@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
     // Create swarm record
     const insertData: TablesInsert<'swarms'> = {
       name: swarm_name,
-      user_id: agent.id,
-      agent_ids: [agent.id],
+      user_id: agent.agent_id,
+      agent_ids: [agent.agent_id],
       config: deploymentConfig as any,
       status: 'pending',
     }

@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       parameter: parameter || null,
       new_value: new_value || null,
       evidence_cid: evidence_cid || null,
-      proposer_id: proposer.id,
+      proposer_id: proposer.agent_id,
       proposer_public_key,
       proposer_signature,
       status: 'active',
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         status: proposal.status,
         ends_at: proposal.ends_at,
         proposer: {
-          id: proposer.id,
+          id: proposer.agent_id,
           name: proposer.name || 'Unknown',
           reputation: proposer.reputation || 0,
         },

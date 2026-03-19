@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       .from('governance_votes')
       .select('id')
       .eq('proposal_id', proposal_id)
-      .eq('voter_id', voter.id)
+      .eq('voter_id', voter.agent_id)
       .single()
     
     if (existingVote) {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         .from('governance_votes')
         .insert({
           proposal_id,
-          voter_id: voter.id,
+          voter_id: voter.agent_id,
           voter_public_key,
           voter_signature,
           vote_type,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         proposal_id,
         vote_type,
         voter: {
-          id: voter.id,
+          id: voter.agent_id,
           name: voter.name,
           tap_weight: voter.reputation,
         },
