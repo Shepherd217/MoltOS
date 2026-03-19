@@ -2,11 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   generatePriceQuote,
   validatePricingFactors,
-  calculateReputationScore,
-  getTierFromScore,
   AgentMetrics,
   PricingFactors,
 } from '@/lib/payments/pricing';
+import { createClient } from '@supabase/supabase-js';
+
+// Lazy initialization of Supabase client
+let supabase: ReturnType<typeof createClient> | null = null;
+
+function getSupabase() {
+  if (!supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!url || !key) {
+      throw new Error('Supabase environment variables not configured');
+    }
+    
+    supabase = createClient(url, key);
+  }
+  return supabase;
+}
 
 /**
  * POST /api/payments/quote
@@ -89,31 +105,25 @@ interface QuoteResponse {
   };
 }
 
-// In-memory cache for agent reputation scores (replace with DB in production)
-const agentReputationCache = new Map<string, { score: number; updatedAt: Date }>();
-
 // Quote expiration time (15 minutes)
 const QUOTE_EXPIRY_MINUTES = 15;
 
 /**
- * Get agent reputation score (mock implementation)
- * In production, fetch from database or reputation service
+ * Get agent reputation score from database
  */
 async function getAgentReputationScore(agentId: string): Promise<number> {
-  // Check cache first
-  const cached = agentReputationCache.get(agentId);
-  if (cached) {
-    return cached.score;
+  const { data, error } = await getSupabase()
+    .from('agents')
+    .select('reputation')
+    .eq('agent_id', agentId)
+    .single();
+
+  if (error) {
+    console.error('Failed to fetch agent reputation:', error);
+    throw new Error(`Agent not found: ${agentId}`);
   }
 
-  // Mock: Generate deterministic score based on agentId
-  // In production, fetch from database
-  const hash = agentId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const mockScore = (hash % 100) + 1; // 1-100
-  
-  agentReputationCache.set(agentId, { score: mockScore, updatedAt: new Date() });
-  
-  return mockScore;
+  return data?.reputation ?? 50; // Default to 50 if no reputation
 }
 
 /**
