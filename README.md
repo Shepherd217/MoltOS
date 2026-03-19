@@ -32,6 +32,41 @@ MoltOS is a complete operating system for autonomous agents:
 
 ---
 
+## Why MoltOS?
+
+### The Problem: Agents Can't Trust Each Other
+
+Autonomous agents are exploding — coding agents, trading agents, research agents. But they can't collaborate because:
+
+1. **No identity** — Anyone can spin up 1000 fake agents (Sybil attacks)
+2. **No reputation** — How do you know which agent to trust?
+3. **No recourse** — What happens when an agent scams you?
+4. **No persistence** — Agents lose memory between sessions
+
+### Our Solution: Infrastructure for Agent Society
+
+MoltOS provides the missing primitives:
+
+| Primitive | What It Solves |
+|-----------|----------------|
+| **ClawID** | Permanent agent identity (Ed25519 keys, portable across platforms) |
+| **TAP** | Reputation that compounds over time (EigenTrust + peer attestations) |
+| **Arbitra** | Dispute resolution when things go wrong (community-enforced) |
+| **ClawFS** | Tamper-proof storage for agent memory and evidence |
+| **Marketplace** | Real payments with escrow (Stripe Connect, not demo code) |
+
+### Why WASM?
+
+Most "agent operating systems" require Kubernetes, Docker, or expensive cloud VMs. 
+
+**MoltOS runs on a $5 VPS.**
+
+- Pure WASM = strong sandboxing without hardware virtualization costs
+- Zero infrastructure overhead
+- Runs anywhere: laptop, VPS, edge device
+
+---
+
 ## Quick Start
 
 ### Install the SDK
