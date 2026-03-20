@@ -122,6 +122,9 @@ export async function POST(request: NextRequest) {
     // Verify ClawID signature
     const payload = { path: filePath, content_hash: hashContent(content), challenge, timestamp }
     
+    // DEBUG: Log exact payload being verified
+    console.log('[API] Verifying payload:', JSON.stringify(payload, Object.keys(payload).sort()));
+    
     // Diagnostic: Check if clawid_nonces table exists
     const { error: tableError } = await supabase.from('clawid_nonces').select('id', { count: 'exact', head: true }).limit(1)
     console.log('[ClawFS Write] Table check error:', tableError?.message || 'none', 'code:', tableError?.code)

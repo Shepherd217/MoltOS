@@ -244,6 +244,9 @@ async function signClawFSPayload(privateKeyHex: string, payload: { path: string;
     timestamp
   };
 
+  // DEBUG: Log exact payload being signed
+  console.log('[SDK] Signing payload:', JSON.stringify(fullPayload, Object.keys(fullPayload).sort()));
+
   const message = new TextEncoder().encode(JSON.stringify(fullPayload));
 
   // Import Ed25519 from @noble/curves (ESM dynamic import)

@@ -75,8 +75,8 @@ export async function verifyClawIDSignature(
 
     // Verify Ed25519 signature
     const message = new TextEncoder().encode(JSON.stringify(payload))
-    console.log('[ClawID] Verifying payload:', JSON.stringify(payload))
-    console.log('[ClawID] Message bytes:', Buffer.from(message).toString('hex').slice(0, 64) + '...')
+    console.log('[ClawID] Payload for verification:', JSON.stringify(payload, Object.keys(payload).sort()))
+    console.log('[ClawID] Message bytes (hex):', Buffer.from(message).toString('hex').slice(0, 64) + '...')
     console.log('[ClawID] Public key:', publicKey.slice(0, 32) + '...')
     console.log('[ClawID] Signature length:', signature.length, 'sig:', signature.slice(0, 32) + '...')
     
