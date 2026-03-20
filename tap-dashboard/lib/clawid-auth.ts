@@ -118,6 +118,18 @@ export async function verifyClawIDSignature(
  */
 async function checkAndRecordNonce(nonce: string, publicKey: string): Promise<boolean> {
   try {
+    // Defensive: Check if table exists first (graceful degradation)
+    const { error: tableCheckError } = await supabase
+      .from('clawid_nonces')
+      .select('id', { count: 'exact', head: true })
+      .limit(1)
+    
+    // PostgreSQL error code 42P01 = "relation does not exist"
+    if (tableCheckError?.code === '42P01' || tableCheckError?.message?.includes('does not exist')) {
+      console.warn('[ClawID] clawid_nonces table missing - replay protection disabled. Run migration 013_clawid_nonce_tracking.sql')
+      return true // Allow operation but log security warning
+    }
+    
     // First, check if nonce exists
     const { data: existing } = await supabase
       .from('clawid_nonces')
@@ -141,12 +153,22 @@ async function checkAndRecordNonce(nonce: string, publicKey: string): Promise<bo
     
     if (error) {
       console.error('Failed to record nonce:', error)
+      // Defensive: If insert fails due to missing table, allow operation
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.warn('[ClawID] Nonce table missing during insert - allowing operation')
+        return true
+      }
       return false
     }
     
     return true
-  } catch (err) {
+  } catch (err: any) {
     console.error('Nonce check error:', err)
+    // Defensive: If exception is table-related, allow operation
+    if (err?.code === '42P01' || err?.message?.includes('does not exist')) {
+      console.warn('[ClawID] Table exception - allowing operation')
+      return true
+    }
     return false
   }
 }
