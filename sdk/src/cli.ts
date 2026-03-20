@@ -247,6 +247,7 @@ async function signClawFSPayload(privateKeyHex: string, payload: { path: string;
   // DEBUG: Log exact payload being signed
   const sortedPayload = JSON.stringify(fullPayload, Object.keys(fullPayload).sort());
   console.log('[SDK] Signing payload:', sortedPayload);
+  console.log('[SDK] Message bytes (hex):', Buffer.from(new TextEncoder().encode(sortedPayload)).toString('hex'));
 
   const message = new TextEncoder().encode(sortedPayload);
 
@@ -270,6 +271,9 @@ async function signClawFSPayload(privateKeyHex: string, payload: { path: string;
   // Sign with Ed25519
   const signatureBytes = ed25519.sign(message, privateKeyBytes);
   const signature = Buffer.from(signatureBytes).toString('base64');
+
+  console.log('[SDK] Signature base64:', signature);
+  console.log('[SDK] Signature bytes (hex):', Buffer.from(signatureBytes).toString('hex'));
 
   return { signature, timestamp, challenge };
 }
