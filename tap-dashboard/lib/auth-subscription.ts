@@ -5,7 +5,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // ============================================================================
 // Subscription Tier Types
@@ -330,12 +329,29 @@ export async function getAuthUserFromRequest(request: Request): Promise<{ user: 
 
 /**
  * Get current user (Server Components / API Routes with cookie auth)
+ * Uses Supabase SSR approach compatible with Next.js 15
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    // For server components, use cookie-based auth
-    const cookieStore = cookies();
-    const supabase = createServerComponentClient({ cookies: () => cookieStore });
+    const cookieStore = await cookies();
+    
+    // Build auth token from cookies
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('[Auth] Supabase environment variables not configured');
+      return null;
+    }
+    
+    // Extract auth token from cookies - Supabase stores it as sb-access-token
+    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('supabase-auth-token');
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: authCookie?.value ? {
+        headers: { Authorization: `Bearer ${authCookie.value}` }
+      } : undefined
+    });
     
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
     
@@ -521,7 +537,7 @@ export function setMockUser(userId: string): void {
   console.warn('[Auth] setMockUser is deprecated. User authentication is now handled by Supabase Auth.');
 }
 
-/** @deprecated Use clearAuth() from @supabase/auth-helpers-nextjs instead */
+/** @deprecated Use supabase.auth.signOut() from @supabase/supabase-js instead */
 export function clearAuth(): void {
   if (typeof window === 'undefined') return;
   

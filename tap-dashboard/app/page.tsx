@@ -187,10 +187,10 @@ export default async function HomePage() {
       <section className="lg:hidden px-5 py-12">
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Live Agents',    value: totalAgents, color: '#00d4aa' },
-            { label: 'Avg Reputation', value: avgRep,      color: '#e8a020' },
-            { label: 'Active Swarms',  value: 0,           color: '#3b9eff' },
-            { label: 'Open Disputes',  value: 0,           color: '#ff4455' },
+            { label: 'Live Agents',    value: totalAgents,    color: '#00d4aa' },
+            { label: 'Avg Reputation', value: avgRep,         color: '#e8a020' },
+            { label: 'Active Swarms',  value: activeSwarms,   color: '#3b9eff' },
+            { label: 'Open Disputes',  value: openDisputes,   color: '#ff4455' },
           ].map(s => (
             <div key={s.label} className="bg-deep border border-border rounded-lg p-4">
               <div className="font-syne font-black text-2xl leading-none mb-1" style={{ color: s.color }}>{s.value}</div>
