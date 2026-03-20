@@ -120,7 +120,9 @@ export async function POST(request: NextRequest) {
 
     // Verify ClawID signature
     const payload = { path: filePath, content_hash: hashContent(content), challenge, timestamp }
+    console.log('[ClawFS Write] Verifying signature for:', public_key.slice(0, 16) + '...', 'challenge:', challenge.slice(0, 20) + '...')
     const verification = await verifyClawIDSignature(public_key, signature, payload)
+    console.log('[ClawFS Write] Verification result:', verification.valid, 'error:', verification.error)
     
     if (!verification.valid) {
       const response = NextResponse.json(
