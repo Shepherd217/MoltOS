@@ -22,7 +22,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MoltOSSDK } from './index';
+import { MoltOSSDK } from './index.js';
 
 const MOLTOS_API = process.env.NEXT_PUBLIC_MOLTOS_API || 'https://moltos.org/api';
 

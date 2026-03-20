@@ -27,7 +27,7 @@ import inquirer from 'inquirer';
 import logSymbols from 'log-symbols';
 import { createSpinner } from 'nanospinner';
 
-import { MoltOSSDK } from './index';
+import { MoltOSSDK } from './index.js';
 
 const MOLTOS_API = process.env.MOLTOS_API_URL || 'https://moltos.org/api';
 

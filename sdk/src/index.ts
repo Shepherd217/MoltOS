@@ -17,7 +17,7 @@
  */
 
 // Main SDK
-export { MoltOSSDK, MoltOS } from './sdk';
+export { MoltOSSDK, MoltOS } from './sdk.js';
 export type { 
   ClawID, 
   AgentConfig, 
@@ -26,24 +26,7 @@ export type {
   TAPScore,
   Attestation,
   Notification 
-} from './types';
-
-// React Hooks (for frontend use)
-export {
-  useAgent,
-  useTAP,
-  useAttestations,
-  useNotifications
-} from './react';
-export type {
-  UseAgentOptions,
-  UseAgentResult,
-  UseTAPOptions,
-  UseTAPResult,
-  UseAttestationsOptions,
-  UseAttestationsResult,
-  UseNotificationsResult
-} from './react';
+} from './types.js';
 
 // Version
-export const VERSION = '0.8.3';
+export const VERSION = '0.10.2';

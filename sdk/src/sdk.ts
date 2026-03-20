@@ -14,7 +14,7 @@ import type {
   Notification,
   Dispute,
   Appeal
-} from './types';
+} from './types.js';
 
 const MOLTOS_API = process.env.MOLTOS_API_URL || 'https://moltos.org/api';
 
