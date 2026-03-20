@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyRateLimit, applySecurityHeaders, validateBodySize } from '@/lib/security';
+
+const MAX_BODY_SIZE_KB = 50;
 
 interface PreflightCheck {
   name: string
@@ -7,8 +10,33 @@ interface PreflightCheck {
 }
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResult = await applyRateLimit(request, 'standard');
+  if (rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+  
   try {
-    const body = await request.json()
+    // Validate body size
+    const bodyText = await request.text();
+    const sizeCheck = validateBodySize(bodyText, MAX_BODY_SIZE_KB);
+    if (!sizeCheck.valid) {
+      return applySecurityHeaders(NextResponse.json(
+        { error: sizeCheck.error },
+        { status: 413 }
+      ));
+    }
+    
+    let body;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return applySecurityHeaders(NextResponse.json(
+        { error: 'Invalid JSON' },
+        { status: 400 }
+      ));
+    }
+    
     const { 
       action, // 'init', 'deploy', 'run', etc.
       public_key,
@@ -83,29 +111,30 @@ export async function POST(request: NextRequest) {
       message: 'LocalStorage available for ClawID persistence',
     })
 
-    return NextResponse.json({
+    return applySecurityHeaders(NextResponse.json({
       status: overallStatus,
       action,
       checks,
       can_proceed: overallStatus !== 'blocked',
       requires_confirmation: overallStatus === 'warning',
       timestamp: new Date().toISOString(),
-    })
+    }))
   } catch (error) {
     console.error('Preflight error:', error)
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       { error: 'Preflight check failed' },
       { status: 500 }
-    )
+    ))
   }
 }
 
 // Also support GET for quick checks
 export async function GET() {
-  return NextResponse.json({
+  // Note: Rate limiting for GET is intentionally skipped for this lightweight public endpoint
+  return applySecurityHeaders(NextResponse.json({
     status: 'ready',
     version: '0.7.3',
     capabilities: ['clawid', 'tap', 'marketplace', 'arbitra', 'clawfs'],
     timestamp: new Date().toISOString(),
-  })
+  }))
 }

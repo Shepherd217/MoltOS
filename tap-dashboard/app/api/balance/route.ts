@@ -7,26 +7,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserBalance, addToBalance } from '@/lib/payments/micropayments';
 import { stripe } from '@/lib/payments/stripe';
+import { applyRateLimit, applySecurityHeaders, validateBodySize } from '@/lib/security';
+
+const MAX_BODY_SIZE_KB = 50;
 
 // ============================================================================
 // GET: Get User Balance
 // ============================================================================
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResult = await applyRateLimit(request, 'standard');
+  if (rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+  
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
     if (!userId) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'userId is required', code: 'MISSING_USER_ID' },
         { status: 400 }
-      );
+      ));
     }
     
     const balance = await getUserBalance(userId);
     
-    return NextResponse.json({
+    return applySecurityHeaders(NextResponse.json({
       success: true,
       balance: {
         userId: balance.userId,
@@ -37,14 +46,14 @@ export async function GET(request: NextRequest) {
         lifetimeSpent: Math.round(balance.lifetimeSpent * 10000) / 10000,
         lastUpdated: balance.lastUpdated.toISOString(),
       },
-    });
+    }));
     
   } catch (error: any) {
     console.error('[Balance API] Error:', error);
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       { error: error.message || 'Failed to get balance', code: 'BALANCE_ERROR' },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -53,25 +62,51 @@ export async function GET(request: NextRequest) {
 // ============================================================================
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting (financial endpoint)
+  const rateLimitResult = await applyRateLimit(request, 'critical');
+  if (rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+  
   try {
-    const body = await request.json();
+    // Validate body size
+    const bodyText = await request.text();
+    const sizeCheck = validateBodySize(bodyText, MAX_BODY_SIZE_KB);
+    if (!sizeCheck.valid) {
+      return applySecurityHeaders(NextResponse.json(
+        { error: sizeCheck.error, code: 'PAYLOAD_TOO_LARGE' },
+        { status: 413 }
+      ));
+    }
+    
+    let body;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return applySecurityHeaders(NextResponse.json(
+        { error: 'Invalid JSON', code: 'INVALID_JSON' },
+        { status: 400 }
+      ));
+    }
+    
     const { userId, amount, paymentMethodId } = body;
     
     if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'userId is required', code: 'MISSING_USER_ID' },
         { status: 400 }
-      );
+      ));
     }
     
     if (!amount || typeof amount !== 'number' || amount < 5) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'amount must be at least $5.00', code: 'INVALID_AMOUNT' },
         { status: 400 }
-      );
+      ));
     }
     
-    // Create Stripe payment intent
+    // Create Stripe payment intent with idempotency key
+    const idempotencyKey = `balance_topup_${userId}_${Math.floor(Date.now() / 60000)}`; // 1-minute window
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency: 'usd',
@@ -84,13 +119,15 @@ export async function POST(request: NextRequest) {
         userId,
         requestedAmount: amount.toString(),
       },
+    }, {
+      idempotencyKey,
     });
     
     if (paymentIntent.status === 'succeeded') {
       // Add funds to balance
       const newBalance = await addToBalance(userId, amount, 'stripe', paymentIntent.id);
       
-      return NextResponse.json({
+      return applySecurityHeaders(NextResponse.json({
         success: true,
         paymentIntentId: paymentIntent.id,
         amount,
@@ -98,26 +135,26 @@ export async function POST(request: NextRequest) {
           current: Math.round(newBalance.balance * 10000) / 10000,
           currency: newBalance.currency,
         },
-      });
+      }));
     } else if (paymentIntent.status === 'requires_action') {
-      return NextResponse.json({
+      return applySecurityHeaders(NextResponse.json({
         success: false,
         requiresAction: true,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-      });
+      }));
     } else {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'Payment failed', status: paymentIntent.status, code: 'PAYMENT_FAILED' },
         { status: 400 }
-      );
+      ));
     }
     
   } catch (error: any) {
     console.error('[Balance API] Error:', error);
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       { error: error.message || 'Failed to process payment', code: 'PAYMENT_ERROR' },
       { status: 500 }
-    );
+    ));
   }
 }

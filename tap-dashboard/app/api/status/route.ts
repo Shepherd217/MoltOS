@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { applyRateLimit, applySecurityHeaders } from '@/lib/security';
 
 let supabase: ReturnType<typeof createClient> | null = null
 
@@ -14,15 +15,21 @@ function getSupabase() {
 }
 
 export async function GET(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResult = await applyRateLimit(request, 'standard');
+  if (rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+  
   try {
     const { searchParams } = new URL(request.url)
     const publicKey = searchParams.get('public_key')
 
     if (!publicKey) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'Missing public_key parameter' },
         { status: 400 }
-      )
+      ))
     }
 
     // Get agent status from agents table
@@ -35,13 +42,13 @@ export async function GET(request: NextRequest) {
     const agent = agentResult.data
 
     if (agentResult.error || !agent) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: 'Agent not found' },
         { status: 404 }
-      )
+      ))
     }
 
-    // Get recent attestations
+    // Get recent attestations (with limit)
     const attestationsResult = await getSupabase()
       .from('attestations')
       .select('*')
@@ -51,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     const attestations = attestationsResult.data
 
-    return NextResponse.json({
+    return applySecurityHeaders(NextResponse.json({
       agent: {
         id: agent.agent_id,
         name: agent.name,
@@ -62,12 +69,12 @@ export async function GET(request: NextRequest) {
       },
       attestations: attestations || [],
       timestamp: new Date().toISOString(),
-    })
+    }))
   } catch (error) {
     console.error('Status error:', error)
-    return NextResponse.json(
+    return applySecurityHeaders(NextResponse.json(
       { error: 'Failed to get status' },
       { status: 500 }
-    )
+    ))
   }
 }

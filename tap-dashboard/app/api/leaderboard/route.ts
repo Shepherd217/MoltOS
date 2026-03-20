@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { applyRateLimit, applySecurityHeaders } from '@/lib/security';
 
 // Lazy initialization of Supabase client
 let supabase: ReturnType<typeof createClient> | null = null;
@@ -19,6 +20,12 @@ function getSupabase() {
 }
 
 export async function GET() {
+  // Apply rate limiting
+  const rateLimitResult = await applyRateLimit(new Request('http://localhost/api/leaderboard'), 'standard');
+  if (rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+  
   try {
     const { data, error } = await getSupabase()
       .from('agents')
@@ -37,9 +44,9 @@ export async function GET() {
       position: index + 1,
     }));
 
-    return NextResponse.json({ agents: leaderboard });
+    return applySecurityHeaders(NextResponse.json({ agents: leaderboard }));
   } catch (error) {
     console.error('Leaderboard error:', error);
-    return NextResponse.json({ agents: [] });
+    return applySecurityHeaders(NextResponse.json({ agents: [] }));
   }
 }
