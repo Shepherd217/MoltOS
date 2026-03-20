@@ -120,6 +120,11 @@ export async function POST(request: NextRequest) {
 
     // Verify ClawID signature
     const payload = { path: filePath, content_hash: hashContent(content), challenge, timestamp }
+    
+    // Diagnostic: Check if clawid_nonces table exists
+    const { error: tableError } = await supabase.from('clawid_nonces').select('id', { count: 'exact', head: true }).limit(1)
+    console.log('[ClawFS Write] Table check error:', tableError?.message || 'none', 'code:', tableError?.code)
+    
     console.log('[ClawFS Write] Verifying signature for:', public_key.slice(0, 16) + '...', 'challenge:', challenge.slice(0, 20) + '...')
     const verification = await verifyClawIDSignature(public_key, signature, payload)
     console.log('[ClawFS Write] Verification result:', verification.valid, 'error:', verification.error)
