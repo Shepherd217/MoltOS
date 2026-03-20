@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify ClawID signature
-    const payload = { path: filePath, content_hash: hashContent(content), challenge, timestamp }
+    const payload = { challenge, content_hash: hashContent(content), path: filePath, timestamp }
     
     // DEBUG: Log exact payload being verified
     console.log('[API] Verifying payload:', JSON.stringify(payload, Object.keys(payload).sort()));

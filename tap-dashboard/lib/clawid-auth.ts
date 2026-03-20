@@ -74,8 +74,9 @@ export async function verifyClawIDSignature(
     console.log('[ClawID] Nonce check bypassed for debugging')
 
     // Verify Ed25519 signature
-    const message = new TextEncoder().encode(JSON.stringify(payload))
-    console.log('[ClawID] Payload for verification:', JSON.stringify(payload, Object.keys(payload).sort()))
+    const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort())
+    const message = new TextEncoder().encode(sortedPayload)
+    console.log('[ClawID] Payload for verification:', sortedPayload)
     console.log('[ClawID] Message bytes (hex):', Buffer.from(message).toString('hex').slice(0, 64) + '...')
     console.log('[ClawID] Public key:', publicKey.slice(0, 32) + '...')
     console.log('[ClawID] Signature length:', signature.length, 'sig:', signature.slice(0, 32) + '...')
