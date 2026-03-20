@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     // Verify ClawID signature
     // SDK sends content_hash of RAW content, but content is base64-encoded
     // We need to hash the decoded content to match SDK
-    const decodedContent = Buffer.from(content, 'base64')
+    // decodedContent already declared above for size validation
     const contentHash = hashContent(decodedContent.toString())
     const payload = { challenge, content_hash: contentHash, path: filePath, timestamp }
     

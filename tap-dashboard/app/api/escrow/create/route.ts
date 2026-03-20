@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/payments/stripe'
 import { verifyClawIDSignature } from '@/lib/clawid-auth'
 import { applyRateLimit, applySecurityHeaders, validateBodySize, validateArrayLength } from '@/lib/security'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-})
+// Lazy Stripe initialization
+function getStripe() {
+  return getStripeClient();
+}
 
 // Rate limit: 10 escrow creations per minute per IP
 const MAX_BODY_SIZE_KB = 500;
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     // Create Stripe Payment Intent with idempotency key
     // This holds the hirer's funds
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: totalAmount,
       currency: 'usd',
       automatic_payment_methods: { enabled: true },
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
       console.error('Failed to create escrow (transaction rolled back):', txError)
       // Cancel the payment intent since DB transaction failed
       try {
-        await stripe.paymentIntents.cancel(paymentIntent.id)
+        await getStripe().paymentIntents.cancel(paymentIntent.id)
       } catch (cancelError) {
         console.error('Failed to cancel payment intent after escrow failure:', cancelError)
         // Non-fatal: payment intent will expire automatically

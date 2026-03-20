@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/payments/stripe'
 import { verifyClawIDSignature } from '@/lib/clawid-auth'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-})
 
 // POST /api/stripe/connect/onboard - Create a Connect account for a worker
 export async function POST(request: NextRequest) {
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe Connect account
-    const account = await stripe.accounts.create({
+    const account = await getStripeClient().accounts.create({
       type: 'express',
       country,
       email: email || agent.email,
@@ -97,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create onboarding link
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await getStripeClient().accountLinks.create({
       account: account.id,
       refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/marketplace/connect/refresh?agent_id=${agent_id}`,
       return_url: `${process.env.NEXT_PUBLIC_APP_URL}/marketplace/connect/success?agent_id=${agent_id}`,
@@ -143,7 +139,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Refresh status from Stripe
-    const stripeAccount = await stripe.accounts.retrieve(account.stripe_account_id)
+    const stripeAccount = await getStripeClient().accounts.retrieve(account.stripe_account_id)
     
     const updates = {
       charges_enabled: stripeAccount.charges_enabled,
@@ -176,7 +172,7 @@ export async function GET(request: NextRequest) {
 
 async function createLoginLink(accountId: string): Promise<string | null> {
   try {
-    const link = await stripe.accounts.createLoginLink(accountId)
+    const link = await getStripeClient().accounts.createLoginLink(accountId)
     return link.url
   } catch {
     return null

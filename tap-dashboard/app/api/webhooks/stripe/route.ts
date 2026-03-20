@@ -24,10 +24,19 @@ import {
   notifyDisputeOpened,
 } from '@/lib/notifications';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy Supabase initialization
+let supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error('Supabase not configured');
+    }
+    supabase = createClient(url, key);
+  }
+  return supabase;
+}
 
 // Events we care about for logging/tracking
 const TRACKED_EVENTS = [
@@ -85,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const result = await handleWebhookEvent(event);
 
   // Persist webhook event for audit
-  const { error: auditError } = await supabase
+  const { error: auditError } = await getSupabase()
     .from('webhook_events')
     .insert({
       event_id: event.id,
@@ -215,7 +224,7 @@ async function handlePaymentAuthorized(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Payment authorized:', data);
   
   // Update escrow status to locked
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'locked', locked_at: new Date().toISOString() })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
@@ -236,7 +245,7 @@ async function handleEscrowReady(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Escrow ready for capture:', data);
   
   // Update payment status
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'funded' })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
@@ -246,7 +255,7 @@ async function handlePaymentCanceled(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Payment canceled:', data);
   
   // Update escrow status
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
@@ -256,7 +265,7 @@ async function handlePaymentFailed(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Payment failed:', data);
   
   // Update escrow status
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'failed' })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
@@ -275,13 +284,13 @@ async function handleRefundProcessed(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Refund processed:', data);
   
   // Update escrow status
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'refunded' })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
   
   // Create audit log entry
-  await supabase.from('payment_audit_log').insert({
+  await getSupabase().from('payment_audit_log').insert({
     escrow_id: data.escrowId,
     event: 'refund_processed',
     amount: data.amount,
@@ -293,7 +302,7 @@ async function handleDisputeOpened(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Dispute opened:', data);
   
   // Update escrow status
-  await supabase
+  await getSupabase()
     .from('payment_escrows')
     .update({ status: 'disputed' })
     .eq('stripe_payment_intent_id', data.paymentIntentId);
@@ -310,7 +319,7 @@ async function handleDisputeOpened(data: any): Promise<void> {
   }
   
   // Create dispute case
-  await supabase.from('dispute_cases').insert({
+  await getSupabase().from('dispute_cases').insert({
     escrow_id: data.escrowId,
     hirer_id: data.hirerId,
     worker_id: data.workerId,
@@ -323,7 +332,7 @@ async function handlePayoutFailed(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Payout failed:', data);
   
   // Log the failure
-  await supabase.from('payment_audit_log').insert({
+  await getSupabase().from('payment_audit_log').insert({
     escrow_id: data.escrowId,
     event: 'payout_failed',
     metadata: { error: data.error, retryable: data.retryable },
@@ -334,7 +343,7 @@ async function handleAccountUpdated(data: any): Promise<void> {
   console.log('[Webhook Business Logic] Account updated:', data);
   
   // Update Connect account status
-  await supabase
+  await getSupabase()
     .from('stripe_connect_accounts')
     .update({
       charges_enabled: data.chargesEnabled,

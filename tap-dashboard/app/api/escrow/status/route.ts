@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-})
+import { getStripeClient } from '@/lib/payments/stripe'
 
 // GET /api/escrow/status - Get escrow details
 export async function GET(request: NextRequest) {
@@ -91,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify payment intent with Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id)
+    const paymentIntent = await getStripeClient().paymentIntents.retrieve(payment_intent_id)
 
     if (paymentIntent.status !== 'succeeded') {
       return NextResponse.json(

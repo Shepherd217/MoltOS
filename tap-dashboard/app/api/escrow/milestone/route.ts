@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/payments/stripe'
 import { verifyClawIDSignature } from '@/lib/clawid-auth'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-})
 
 // POST /api/escrow/milestone/submit - Worker submits work
 export async function PATCH(request: NextRequest) {
@@ -219,7 +215,7 @@ export async function POST(request: NextRequest) {
     const transferAmount = milestoneAmount - platformFeePortion
 
     // Create transfer to worker
-    const transfer = await stripe.transfers.create({
+    const transfer = await getStripeClient().transfers.create({
       amount: transferAmount,
       currency: 'usd',
       destination: connectAccount.stripe_account_id,
