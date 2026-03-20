@@ -1,9 +1,11 @@
 /**
  * MoltOS Authentication & Subscription System
- * Mock auth system using localStorage/cookies for development
+ * Real Supabase Auth integration
  */
 
-// NOTE: For server-side cookie access, use getUserFromCookies() in Server Components only
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // ============================================================================
 // Subscription Tier Types
@@ -23,6 +25,10 @@ export interface Subscription {
     maxPrimitives: number;
     supportLevel: 'community' | 'email' | 'priority' | 'sla';
   };
+  status: 'active' | 'cancelled' | 'past_due' | 'unpaid';
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  cancelAtPeriodEnd?: boolean;
 }
 
 export interface User {
@@ -33,11 +39,26 @@ export interface User {
   createdAt: string;
 }
 
+// Database row type
+interface UserSubscriptionRow {
+  id: string;
+  user_id: string;
+  tier: SubscriptionTier;
+  status: 'active' | 'cancelled' | 'past_due' | 'unpaid';
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================================
 // Tier Configuration
 // ============================================================================
 
-export const TIER_CONFIG: Record<SubscriptionTier, Omit<Subscription, 'expiresAt'>> = {
+export const TIER_CONFIG: Record<SubscriptionTier, Omit<Subscription, 'expiresAt' | 'status'>> = {
   starter: {
     tier: 'starter',
     name: 'Starter',
@@ -103,57 +124,32 @@ export const TIER_CONFIG: Record<SubscriptionTier, Omit<Subscription, 'expiresAt
       'All Pro features',
       'Unlimited agents',
       'Custom primitives',
-      'SLA guarantee',
-      'Dedicated support',
-      'White-label options',
-      'On-premise deployment',
-      'Audit logs',
+      'SLA support',
+      'Dedicated infrastructure',
+      'Custom contracts',
     ],
     limits: {
-      maxAgents: -1, // Unlimited
-      maxPrimitives: -1, // Unlimited
+      maxAgents: 100,
+      maxPrimitives: 1000,
       supportLevel: 'sla',
     },
   },
 };
 
-// ============================================================================
-// Agent Access Mapping
-// ============================================================================
-
-export const AGENT_ACCESS: Record<string, SubscriptionTier[]> = {
-  'genesis': ['starter', 'builder', 'pro', 'enterprise'],
-  'support': ['builder', 'pro', 'enterprise'],
-  'monitor': ['builder', 'pro', 'enterprise'],
-  'trading': ['pro', 'enterprise'],
+// Feature access by tier
+const FEATURE_ACCESS: Record<SubscriptionTier, string[]> = {
+  starter: ['read-only', 'basic-analytics'],
+  builder: ['read-only', 'basic-analytics', 'basic-primitives', 'email-support', 'advanced-analytics'],
+  pro: ['read-only', 'basic-analytics', 'basic-primitives', 'advanced-primitives', 'email-support', 'priority-support', 'advanced-analytics', 'api-access', 'custom-integrations'],
+  enterprise: ['read-only', 'basic-analytics', 'basic-primitives', 'advanced-primitives', 'custom-primitives', 'email-support', 'priority-support', 'sla-support', 'advanced-analytics', 'api-access', 'custom-integrations', 'dedicated-infrastructure'],
 };
 
-// ============================================================================
-// Feature Access Mapping
-// ============================================================================
-
-export const FEATURE_ACCESS: Record<string, SubscriptionTier[]> = {
-  'read-only': ['starter', 'builder', 'pro', 'enterprise'],
-  'basic-primitives': ['builder', 'pro', 'enterprise'],
-  'advanced-primitives': ['pro', 'enterprise'],
-  'custom-primitives': ['enterprise'],
-  'api-access': ['pro', 'enterprise'],
-  'priority-support': ['pro', 'enterprise'],
-  'sla-support': ['enterprise'],
-};
-
-// ============================================================================
-// Tier Priority for Comparison
-// ============================================================================
-
-/**
- * Tier priority for comparison (higher = more access)
- */
-export const TIER_PRIORITY: Record<SubscriptionTier, number> = {
-  starter: 0,
-  builder: 1,
-  pro: 2,
-  enterprise: 3,
+// Agent access by tier
+const AGENT_ACCESS: Record<SubscriptionTier, string[]> = {
+  starter: ['genesis'],
+  builder: ['genesis', 'support', 'monitor'],
+  pro: ['genesis', 'support', 'monitor', 'trading'],
+  enterprise: ['genesis', 'support', 'monitor', 'trading'],
 };
 
 // ============================================================================
@@ -161,42 +157,83 @@ export const TIER_PRIORITY: Record<SubscriptionTier, number> = {
 // ============================================================================
 
 /**
- * Check if a tier has access to a specific agent
+ * Convert database row to Subscription object
  */
-export function hasAgentAccess(tier: SubscriptionTier, agentType: string): boolean {
-  const allowedTiers = AGENT_ACCESS[agentType.toLowerCase()];
-  if (!allowedTiers) return false;
-  return allowedTiers.includes(tier);
+function rowToSubscription(row: UserSubscriptionRow): Subscription {
+  const config = TIER_CONFIG[row.tier];
+  const isActive = row.status === 'active' && 
+    (!row.current_period_end || new Date(row.current_period_end) > new Date());
+  
+  return {
+    ...config,
+    tier: row.tier,
+    status: isActive ? 'active' : row.status,
+    expiresAt: row.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    stripeCustomerId: row.stripe_customer_id || undefined,
+    stripeSubscriptionId: row.stripe_subscription_id || undefined,
+    cancelAtPeriodEnd: row.cancel_at_period_end,
+  };
 }
 
 /**
- * Check if a tier has access to a specific feature
+ * Get Supabase service role client (for server-side operations)
+ */
+function getServiceClient(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    throw new Error('Supabase environment variables not configured');
+  }
+  
+  return createClient(url, key);
+}
+
+/**
+ * Check if a tier has access to a feature
  */
 export function hasFeatureAccess(tier: SubscriptionTier, feature: string): boolean {
-  const allowedTiers = FEATURE_ACCESS[feature.toLowerCase()];
-  if (!allowedTiers) return false;
-  return allowedTiers.includes(tier);
+  return FEATURE_ACCESS[tier]?.includes(feature) ?? false;
 }
 
 /**
- * Check if user's tier meets the minimum required tier
+ * Check if a tier has access to an agent
  */
-export function meetsMinimumTier(userTier: SubscriptionTier, requiredTier: SubscriptionTier): boolean {
-  return TIER_PRIORITY[userTier] >= TIER_PRIORITY[requiredTier];
+export function hasAgentAccess(tier: SubscriptionTier, agentType: string): boolean {
+  return AGENT_ACCESS[tier]?.includes(agentType) ?? false;
 }
 
 /**
- * Get the next tier upgrade for a user
+ * Get tier rank for comparison (higher = better)
+ */
+function getTierRank(tier: SubscriptionTier): number {
+  const ranks: Record<SubscriptionTier, number> = {
+    starter: 0,
+    builder: 1,
+    pro: 2,
+    enterprise: 3,
+  };
+  return ranks[tier] ?? 0;
+}
+
+/**
+ * Check if current tier meets minimum requirement
+ */
+export function meetsMinimumTier(currentTier: SubscriptionTier, requiredTier: SubscriptionTier): boolean {
+  return getTierRank(currentTier) >= getTierRank(requiredTier);
+}
+
+/**
+ * Get next tier upgrade
  */
 export function getNextTier(currentTier: SubscriptionTier): SubscriptionTier | null {
   const tiers: SubscriptionTier[] = ['starter', 'builder', 'pro', 'enterprise'];
   const currentIndex = tiers.indexOf(currentTier);
-  if (currentIndex === -1 || currentIndex === tiers.length - 1) return null;
-  return tiers[currentIndex + 1];
+  return currentIndex < tiers.length - 1 ? tiers[currentIndex + 1] : null;
 }
 
 /**
- * Get upgrade path and pricing information
+ * Get upgrade info for a tier
  */
 export function getUpgradeInfo(currentTier: SubscriptionTier): {
   nextTier: SubscriptionTier | null;
@@ -224,66 +261,123 @@ export function getUpgradeInfo(currentTier: SubscriptionTier): {
 }
 
 // ============================================================================
-// Mock User Data (Server-Side)
-// ============================================================================
-
-const MOCK_USERS: Record<string, User> = {
-  'demo-starter': {
-    id: 'demo-starter',
-    email: 'demo@starter.com',
-    name: 'Demo Starter',
-    subscription: {
-      ...TIER_CONFIG.starter,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-  },
-  'demo-builder': {
-    id: 'demo-builder',
-    email: 'demo@builder.com',
-    name: 'Demo Builder',
-    subscription: {
-      ...TIER_CONFIG.builder,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-  },
-  'demo-pro': {
-    id: 'demo-pro',
-    email: 'demo@pro.com',
-    name: 'Demo Pro',
-    subscription: {
-      ...TIER_CONFIG.pro,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-  },
-  'demo-enterprise': {
-    id: 'demo-enterprise',
-    email: 'demo@enterprise.com',
-    name: 'Demo Enterprise',
-    subscription: {
-      ...TIER_CONFIG.enterprise,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-  },
-};
-
-// ============================================================================
 // Server-Side Auth Functions
 // ============================================================================
 
-const AUTH_COOKIE_NAME = 'moltos_session';
+/**
+ * Get current authenticated user from request (API Routes)
+ * Use Bearer token from Authorization header
+ */
+export async function getAuthUserFromRequest(request: Request): Promise<{ user: User | null; error: string | null }> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { user: null, error: 'Unauthorized - Bearer token required' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON || '',
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    }
+  );
+
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !authUser) {
+    return { user: null, error: 'Unauthorized - Invalid token' };
+  }
+  
+  // Get subscription data
+  const serviceClient = getServiceClient();
+  const { data: subData, error: subError } = await serviceClient
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', authUser.id)
+    .single();
+  
+  if (subError) {
+    console.error('Error fetching subscription:', subError);
+    // Return user with starter tier as fallback
+    return {
+      user: {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        subscription: {
+          ...TIER_CONFIG.starter,
+          status: 'active',
+          expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        createdAt: authUser.created_at || new Date().toISOString(),
+      },
+      error: null,
+    };
+  }
+  
+  const user: User = {
+    id: authUser.id,
+    email: authUser.email || '',
+    name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+    subscription: rowToSubscription(subData as UserSubscriptionRow),
+    createdAt: authUser.created_at || new Date().toISOString(),
+  };
+  
+  return { user, error: null };
+}
 
 /**
- * Get current user (Client-side only for now)
- * In production, this would validate session server-side
+ * Get current user (Server Components / API Routes with cookie auth)
  */
 export async function getCurrentUser(): Promise<User | null> {
-  // For demo/development, return starter user
-  // In production, implement proper server-side session validation
-  return MOCK_USERS['demo-starter'];
+  try {
+    // For server components, use cookie-based auth
+    const cookieStore = cookies();
+    const supabase = createServerComponentClient({ cookies: () => cookieStore });
+    
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authUser) {
+      return null;
+    }
+    
+    // Get subscription data using service role
+    const serviceClient = getServiceClient();
+    const { data: subData, error: subError } = await serviceClient
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', authUser.id)
+      .single();
+    
+    if (subError) {
+      console.error('Error fetching subscription:', subError);
+      // Return user with starter tier as fallback
+      return {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        subscription: {
+          ...TIER_CONFIG.starter,
+          status: 'active',
+          expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        createdAt: authUser.created_at || new Date().toISOString(),
+      };
+    }
+    
+    return {
+      id: authUser.id,
+      email: authUser.email || '',
+      name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+      subscription: rowToSubscription(subData as UserSubscriptionRow),
+      createdAt: authUser.created_at || new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('[Auth] Error getting current user:', error);
+    return null;
+  }
 }
 
 /**
@@ -291,7 +385,7 @@ export async function getCurrentUser(): Promise<User | null> {
  */
 export async function getCurrentSubscription(): Promise<Subscription> {
   const user = await getCurrentUser();
-  return user?.subscription || TIER_CONFIG.starter as Subscription;
+  return user?.subscription || { ...TIER_CONFIG.starter, status: 'active', expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() };
 }
 
 /**
@@ -331,24 +425,63 @@ export async function requireMinimumTier(requiredTier: SubscriptionTier): Promis
 // Client-Side Auth Functions
 // ============================================================================
 
-const LOCAL_STORAGE_KEY = 'moltos_auth';
+/**
+ * Get Supabase client for client-side usage
+ */
+export function getClientSupabase(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON;
+  
+  if (!url || !key) {
+    throw new Error('Supabase environment variables not configured');
+  }
+  
+  return createClient(url, key);
+}
 
 /**
- * Get user from localStorage (Client-Side)
+ * Get current user (Client-Side)
  */
-export function getClientUser(): User | null {
+export async function getClientUser(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
   
   try {
-    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!data) return null;
+    const supabase = getClientSupabase();
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
     
-    const session = JSON.parse(data);
-    const userId = session.userId;
+    if (authError || !authUser) {
+      return null;
+    }
     
-    if (!userId || !MOCK_USERS[userId]) return null;
+    // Get subscription data
+    const { data: subData, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', authUser.id)
+      .single();
     
-    return MOCK_USERS[userId];
+    if (subError) {
+      console.error('Error fetching subscription:', subError);
+      return {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        subscription: {
+          ...TIER_CONFIG.starter,
+          status: 'active',
+          expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        createdAt: authUser.created_at || new Date().toISOString(),
+      };
+    }
+    
+    return {
+      id: authUser.id,
+      email: authUser.email || '',
+      name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+      subscription: rowToSubscription(subData as UserSubscriptionRow),
+      createdAt: authUser.created_at || new Date().toISOString(),
+    };
   } catch (error) {
     console.error('[Auth] Error getting client user:', error);
     return null;
@@ -356,49 +489,44 @@ export function getClientUser(): User | null {
 }
 
 /**
- * Set mock user for testing (Client-Side)
- */
-export function setMockUser(userId: keyof typeof MOCK_USERS): void {
-  if (typeof window === 'undefined') return;
-  
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ userId }));
-  
-  // Also set cookie for server-side auth
-  document.cookie = `${AUTH_COOKIE_NAME}=${JSON.stringify({ userId })}; path=/; max-age=86400`;
-}
-
-/**
- * Clear auth session (Client-Side)
- */
-export function clearAuth(): void {
-  if (typeof window === 'undefined') return;
-  
-  localStorage.removeItem(LOCAL_STORAGE_KEY);
-  document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0`;
-}
-
-/**
  * Get client-side subscription
  */
-export function getClientSubscription(): Subscription {
-  const user = getClientUser();
-  return user?.subscription || TIER_CONFIG.starter as Subscription;
+export async function getClientSubscription(): Promise<Subscription> {
+  const user = await getClientUser();
+  return user?.subscription || { ...TIER_CONFIG.starter, status: 'active', expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() };
 }
 
 /**
  * Check client-side feature access
  */
-export function checkClientFeatureAccess(feature: string): boolean {
-  const subscription = getClientSubscription();
+export async function checkClientFeatureAccess(feature: string): Promise<boolean> {
+  const subscription = await getClientSubscription();
   return hasFeatureAccess(subscription.tier, feature);
 }
 
 /**
  * Check client-side agent access
  */
-export function checkClientAgentAccess(agentType: string): boolean {
-  const subscription = getClientSubscription();
+export async function checkClientAgentAccess(agentType: string): Promise<boolean> {
+  const subscription = await getClientSubscription();
   return hasAgentAccess(subscription.tier, agentType);
+}
+
+// ============================================================================
+// Legacy Mock Functions (Deprecated - for backward compatibility)
+// ============================================================================
+
+/** @deprecated Use getClientUser() instead */
+export function setMockUser(userId: string): void {
+  console.warn('[Auth] setMockUser is deprecated. User authentication is now handled by Supabase Auth.');
+}
+
+/** @deprecated Use clearAuth() from @supabase/auth-helpers-nextjs instead */
+export function clearAuth(): void {
+  if (typeof window === 'undefined') return;
+  
+  const supabase = getClientSupabase();
+  supabase.auth.signOut();
 }
 
 // ============================================================================
@@ -417,25 +545,13 @@ export const PROTECTED_ROUTES: RouteProtection[] = [
   { path: '/agent/trading', requiredTier: 'pro', requiredAgent: 'trading' },
   { path: '/agent/support', requiredTier: 'builder', requiredAgent: 'support' },
   { path: '/agent/monitor', requiredTier: 'builder', requiredAgent: 'monitor' },
-  { path: '/primitives/advanced', requiredTier: 'pro', requiredFeature: 'advanced-primitives' },
-  { path: '/primitives/custom', requiredTier: 'enterprise', requiredFeature: 'custom-primitives' },
-  { path: '/api/trading', requiredTier: 'pro', requiredAgent: 'trading' },
-  { path: '/settings/integrations', requiredTier: 'pro', requiredFeature: 'api-access' },
+  { path: '/api/claw/scheduler', requiredTier: 'builder' },
+  { path: '/api/claw/vm/deploy', requiredTier: 'pro' },
 ];
 
 /**
- * Check if a path requires protection and get requirements
+ * Check if a path requires protection and return requirements
  */
 export function getRouteProtection(path: string): RouteProtection | null {
-  // Normalize path
-  const normalizedPath = path.replace(/\/$/, '');
-  
-  // Find matching protection rule
-  for (const rule of PROTECTED_ROUTES) {
-    if (normalizedPath.startsWith(rule.path)) {
-      return rule;
-    }
-  }
-  
-  return null;
+  return PROTECTED_ROUTES.find(route => path.startsWith(route.path)) || null;
 }
