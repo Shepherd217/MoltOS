@@ -16,8 +16,23 @@ import type {
   StatsResponse,
 } from './types'
 
-const BASE = ''
 const FETCH_TIMEOUT = 5000 // 5 second timeout
+
+// Get base URL for API calls - handles both client and server
+function getBaseUrl(): string {
+  // Client-side: use relative URL
+  if (typeof window !== 'undefined') return ''
+  
+  // Server-side: need absolute URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL
+  }
+  // Fallback for local development
+  return 'http://localhost:3000'
+}
 
 async function apiFetch<T>(
   path: string,
@@ -32,9 +47,12 @@ async function apiFetch<T>(
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+  
+  const baseUrl = getBaseUrl()
+  const url = `${baseUrl}${path}`
 
   try {
-    const res = await fetch(`${BASE}${path}`, { 
+    const res = await fetch(url, { 
       ...opts, 
       headers,
       signal: controller.signal 

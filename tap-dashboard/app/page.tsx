@@ -4,28 +4,32 @@ import Link from 'next/link'
 import TierBadge from '@/components/TierBadge'
 import HeroCanvas from '@/components/HeroCanvas'
 
-// Force dynamic rendering - prevents static generation timeout
+// Force dynamic rendering - prevents static generation
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 async function getLiveMetrics() {
   try {
+    console.log('[SSR] Fetching live metrics...')
     const [leaderboardData, statsData] = await Promise.all([
       getLeaderboard(),
       getStats()
     ])
     
+    console.log('[SSR] Stats data:', statsData)
+    
     const agents = leaderboardData.agents ?? []
     
     return { 
       agents, 
-      active: statsData.liveAgents,
-      avgRep: statsData.avgReputation,
-      totalAgents: statsData.liveAgents,
-      activeSwarms: statsData.activeSwarms,
-      openDisputes: statsData.openDisputes
+      active: statsData.liveAgents ?? 0,
+      avgRep: statsData.avgReputation ?? 0,
+      totalAgents: statsData.liveAgents ?? 0,
+      activeSwarms: statsData.activeSwarms ?? 0,
+      openDisputes: statsData.openDisputes ?? 0
     }
   } catch (error) {
-    console.error('Failed to fetch live metrics:', error)
+    console.error('[SSR] Failed to fetch live metrics:', error)
     // Return zeros on error - don't fake data
     return { 
       agents: [] as LeaderboardEntry[], 
